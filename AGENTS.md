@@ -1,0 +1,11 @@
+# Repository Guidelines
+
+Guidelines for AI agents working in this repository — a public collection of agent skills installed via `npx skills`.
+
+- **Never put personal or environment-specific data in this repo.** No secrets, credentials, PII, real names or emails, internal hostnames/IPs, or machine-specific paths (e.g. personal dotfiles layouts). Use neutral placeholders in examples — `John Doe`, `johndoe@example.com`, `sk-...`. *Why: the repo is public; anything committed is exposed and may stay indexed even after deletion.*
+- **Never leave Claude/AI session links or tool-generation traces anywhere** — not in commit messages, code, or docs. No assistant session URLs (e.g. `claude.ai/code/...`), no `Co-Authored-By` / `Generated with ...` trailers, no similar AI-tool markers. *Why: they leak private session identifiers and clutter a public history.*
+- **Never commit, push, or open/merge pull requests without an explicit instruction.** Make changes in the working tree and stop. *Why: publishing is hard to reverse; the user decides when changes ship.*
+- **Follow [Conventional Commits](https://www.conventionalcommits.org) for commit messages.** Format `type(scope): summary` — e.g. `feat(youtube-markdown): add subtitle fallback`, `fix(bitwarden-cli): correct serve port`, `docs: refresh README catalog`. Common types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`; scope is usually the skill name. *Why: a consistent, parseable history supports changelogs and tooling.*
+- **Keep commits small and atomic.** One focused change per commit; don't bundle unrelated work (e.g. adding a skill and an unrelated fix go in separate commits). *Why: small commits are easier to review, revert, and trace.*
+- **Default to English** for all content unless explicitly told otherwise. *Why: the repo is public and English-oriented; consistency keeps it accessible.*
+- **Keep the README skill catalog in sync.** When a skill is added or removed under `skills/`, update the skill table in `README.md` and every translation under `docs/` (entry + one-line description + install command). *Why: the catalog is the repo's entry point; a stale list misleads users.*
