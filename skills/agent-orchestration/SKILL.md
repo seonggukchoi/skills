@@ -1,6 +1,20 @@
 ---
 name: agent-orchestration
-description: Use when the user asks to coordinate the work of multiple subagents or synthesize their results — e.g., "give me a briefing", "summarize the status", "coordinate the agents", "sort out task priorities", "summarize the overall situation", "distribute the work", "handle this using multiple agents", "who owns this?", "synthesize the agents' results", "show me the overall status", "lay out what's next", "orchestrate agents", "status briefing". Also use when the main agent, after analyzing a request, determines that: (1) it falls under a specific specialty area (DB, DevOps, security, QA, marketing, etc.) and should be delegated to a specialist subagent (including a single delegation); (2) it's a task that consumes a lot of the main session context — bulk file searches, log analysis, broad codebase investigation, web research across many items, organizing long material — and should be isolated in a subagent to save context; or (3) the request should be broken into small units (split across different specialty areas, or fanned out by repeating the same investigation across many items) so that two or more subagents process them in parallel/sequence and the main agent combines the results.
+description: >-
+  Use when the user asks to coordinate the work of multiple subagents or synthesize their
+  results — e.g., "give me a briefing", "summarize the status", "coordinate the agents",
+  "sort out task priorities", "summarize the overall situation", "distribute the work",
+  "handle this using multiple agents", "who owns this?", "synthesize the agents' results",
+  "show me the overall status", "lay out what's next", "orchestrate agents", "status
+  briefing". Also use when the main agent, after analyzing a request, determines that: (1)
+  it falls under a specific specialty area (DB, DevOps, security, QA, marketing, etc.) and
+  should be delegated to a specialist subagent (including a single delegation); (2) it's a
+  task that consumes a lot of the main session context — bulk file searches, log analysis,
+  broad codebase investigation, web research across many items, organizing long material —
+  and should be isolated in a subagent to save context; or (3) the request should be broken
+  into small units (split across different specialty areas, or fanned out by repeating the
+  same investigation across many items) so that two or more subagents process them in
+  parallel/sequence and the main agent combines the results.
 ---
 
 # Subagent Orchestration
