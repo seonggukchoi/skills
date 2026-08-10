@@ -28,6 +28,7 @@ Each skill can be installed on its own:
 
 | Skill | Description | Install |
 | --- | --- | --- |
+| [`agent-browser-human-control`](skills/agent-browser-human-control) | Drive a browser over CDP with human-like input — curved mouse movement, natural typing, Hangul IME, touch gestures. | `npx skills add seonggukchoi/skills --skill agent-browser-human-control` |
 | [`agent-creator`](skills/agent-creator) | Design, create, diagnose, and improve AI subagent profiles as markdown files. | `npx skills add seonggukchoi/skills --skill agent-creator` |
 | [`agent-instruction-management`](skills/agent-instruction-management) | Write, refactor, and manage agent instruction files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). | `npx skills add seonggukchoi/skills --skill agent-instruction-management` |
 | [`agent-orchestration`](skills/agent-orchestration) | Coordinate, fan out, and synthesize work across multiple subagents. | `npx skills add seonggukchoi/skills --skill agent-orchestration` |
@@ -38,4 +39,4 @@ Each skill can be installed on its own:
 | [`watercrawl`](skills/watercrawl) | Scrape, crawl, and web-search via a self-hosted WaterCrawl API instance (markdown output, JS rendering, screenshots). | `npx skills add seonggukchoi/skills --skill watercrawl` |
 | [`youtube-markdown`](skills/youtube-markdown) | Turn YouTube videos into searchable markdown with timestamps and screen captures. | `npx skills add seonggukchoi/skills --skill youtube-markdown` |
 
-Some skills rely on external tools — e.g. the `codex` CLI, the Bitwarden `bw` CLI, `pandoc`, a running WaterCrawl instance (for `watercrawl`), or Apple Silicon + `mlx-whisper` (for `youtube-markdown`). See each skill's `SKILL.md` for its prerequisites.
+Some skills rely on external tools — e.g. the `codex` CLI, the Bitwarden `bw` CLI, `pandoc`, a running WaterCrawl instance (for `watercrawl`), Node.js 18+ and a CDP-reachable browser (for `agent-browser-human-control`), or Apple Silicon + `mlx-whisper` (for `youtube-markdown`). See each skill's `SKILL.md` for its prerequisites.
