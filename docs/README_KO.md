@@ -28,6 +28,7 @@ npx skills add seonggukchoi/skills --skill agent-creator --skill youtube-markdow
 
 | 스킬 | 설명 | 설치 |
 | --- | --- | --- |
+| [`agent-browser-human-control`](../skills/agent-browser-human-control) | CDP로 브라우저를 사람처럼 조작 — 곡선 마우스 이동, 자연스러운 타이핑, 한글 IME, 터치 제스처. | `npx skills add seonggukchoi/skills --skill agent-browser-human-control` |
 | [`agent-creator`](../skills/agent-creator) | AI 서브에이전트 프로필을 마크다운으로 설계·생성·진단·개선. | `npx skills add seonggukchoi/skills --skill agent-creator` |
 | [`agent-instruction-management`](../skills/agent-instruction-management) | 에이전트 지침 파일(`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) 작성·리팩토링·관리. | `npx skills add seonggukchoi/skills --skill agent-instruction-management` |
 | [`agent-orchestration`](../skills/agent-orchestration) | 여러 서브에이전트에 작업을 분배·병렬화하고 결과를 종합. | `npx skills add seonggukchoi/skills --skill agent-orchestration` |
@@ -38,4 +39,4 @@ npx skills add seonggukchoi/skills --skill agent-creator --skill youtube-markdow
 | [`watercrawl`](../skills/watercrawl) | self-hosted WaterCrawl API로 스크랩·크롤링·웹 검색(마크다운 출력, JS 렌더링, 스크린샷). | `npx skills add seonggukchoi/skills --skill watercrawl` |
 | [`youtube-markdown`](../skills/youtube-markdown) | 유튜브 영상을 타임스탬프·화면 캡처가 포함된 검색 가능한 마크다운으로 변환. | `npx skills add seonggukchoi/skills --skill youtube-markdown` |
 
-일부 스킬은 외부 도구가 필요합니다 — 예: `codex` CLI, Bitwarden `bw` CLI, `pandoc`, WaterCrawl 인스턴스(`watercrawl`용), 또는 Apple Silicon + `mlx-whisper`(`youtube-markdown`용). 각 스킬의 `SKILL.md`에서 사전 요구사항을 확인하세요.
+일부 스킬은 외부 도구가 필요합니다 — 예: `codex` CLI, Bitwarden `bw` CLI, `pandoc`, WaterCrawl 인스턴스(`watercrawl`용), Node.js 18+ 및 CDP 접속 가능한 브라우저(`agent-browser-human-control`용), 또는 Apple Silicon + `mlx-whisper`(`youtube-markdown`용). 각 스킬의 `SKILL.md`에서 사전 요구사항을 확인하세요.
