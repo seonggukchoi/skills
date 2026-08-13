@@ -62,19 +62,22 @@ Call the built-in tool with `codex exec`. The key is to instruct it to produce *
 
 ```bash
 # Generate
-codex exec --full-auto --skip-git-repo-check \
+codex exec --sandbox workspace-write --skip-git-repo-check \
   "Use your built-in image_gen tool to generate exactly one image. <English prompt>. \
 After saving, copy it into the current working directory as out.png and print its absolute path on its own line."
 
 # Edit — attach the source with -i (pass it multiple times for multiple inputs)
-codex exec --full-auto --skip-git-repo-check -i /abs/path/original.png \
+# The -- before the prompt is required: -i takes a variadic list and would otherwise eat it.
+codex exec --sandbox workspace-write --skip-git-repo-check -i /abs/path/original.png -- \
   "Use your built-in image_gen tool to edit the attached image. \
 Change: <change>. Keep everything else unchanged. \
 After saving, copy it into the current working directory as edited.png and print its absolute path on its own line."
 ```
 
-- `--full-auto`: proceeds automatically through tool use without an approval prompt
+- `--sandbox workspace-write`: lets codex write its result into the working directory without an approval prompt. It replaces the older `--full-auto`, which was deprecated in 0.142.2 and **removed in 0.147.0** — passing it now fails with `error: unexpected argument '--full-auto' found`. Valid values are `read-only`, `workspace-write`, and `danger-full-access`; `read-only` blocks the copy step this skill depends on.
 - `--skip-git-repo-check`: runs even outside a git repository
+- `-i FILE`: attaches an image. It is declared as `--image <FILE>...` (variadic), so put `--` before the prompt or it is consumed as another filename and codex fails with `No prompt provided via stdin`.
+- Redirect stdin from `/dev/null` when scripting. codex appends piped stdin to the prompt, so an open pipe leaves it waiting on `Reading additional input from stdin...` instead of running.
 
 ### Getting the result (when invoking directly)
 
@@ -82,7 +85,7 @@ The built-in tool saves each result in a different UUID folder (`~/.codex/genera
 
 ```bash
 # 1) Recommended: capture the absolute path printed by the prompt via -o and parse it
-codex exec --full-auto --skip-git-repo-check -o /tmp/last.txt \
+codex exec --sandbox workspace-write --skip-git-repo-check -o /tmp/last.txt \
   "Use your built-in image_gen tool to generate exactly one image. <prompt>. \
 After saving, copy it into the current working directory as out.png and print its absolute path on its own line."
 grep -oE '/[^[:space:]]+\.png' /tmp/last.txt | tail -1

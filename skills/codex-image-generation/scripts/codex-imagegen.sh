@@ -8,8 +8,9 @@
 # Saves the result to the given <out.png> (both absolute and relative paths allowed) and prints its absolute path to stdout.
 # If codex fails to copy the result to the target path, it falls back to retrieving the latest file from ~/.codex/generated_images.
 #
-# Note: the default behavior relies on codex copying the result file into the workspace. In environments where
-#       the codex sandbox is restricted to workspace-write, <out.png> must be in a writable location (e.g., under the current directory).
+# Note: the result arrives by having codex copy the file into the workspace, and codex runs under
+#       --sandbox workspace-write, so <out.png> must sit in a writable location (e.g., under the current directory).
+#       Requires a codex version that accepts --sandbox; the older --full-auto was removed in 0.147.0.
 set -euo pipefail
 
 die() { printf 'codex-imagegen: %s\n' "$*" >&2; exit 1; }
@@ -40,10 +41,23 @@ recover_output() {
 }
 
 # Uses the global PROMPT, OUT_ABS, CODEX. Takes codex exec options (e.g., -i) as arguments.
+#
+# Two details in the command line below are load-bearing:
+#   --            `-i/--image` takes a variadic list, so without a separator it swallows the
+#                 prompt as another filename and codex reports "No prompt provided via stdin".
+#   </dev/null    codex appends piped stdin to the prompt, so an open pipe makes it block on
+#                 "Reading additional input from stdin..." instead of running.
+#
+# On failure, codex's own tail goes to stderr: the cause is usually specific — a rejected flag,
+# a model the account cannot use, an expired login — and no generic hint can stand in for it.
 run_image_gen() {
   mkdir -p "$(dirname "$OUT_ABS")"
-  "$CODEX" exec --full-auto --skip-git-repo-check "$@" "$PROMPT" >/dev/null 2>&1 \
-    || die "codex execution failed (check login/network/feature enablement)"
+  local output
+  if ! output=$("$CODEX" exec --sandbox workspace-write --skip-git-repo-check "$@" -- "$PROMPT" 2>&1 </dev/null); then
+    printf 'codex-imagegen: codex exec failed. Last output from codex:\n' >&2
+    printf '%s\n' "$output" | tail -20 >&2
+    die 'codex execution failed (see the codex output above)'
+  fi
   recover_output "$OUT_ABS"
 }
 
