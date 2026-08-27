@@ -1,0 +1,174 @@
+{
+  "skill_name": "herdr-enhanced",
+  "purpose": "Only whether this skill loads when it should and stays out when it should not. Answer quality is what evals.json looks at.",
+  "environment": {
+    "required": "Run it in a shell where HERDR_ENV=1 or $HERDR_PANE_ID is set",
+    "why": "The description presumes both variables, so running outside herdr makes every should_trigger case fail, and that is correct behavior. Results from that state must not be read as a regression.",
+    "prerequisites": "herdr must be installed — https://herdr.dev (with Homebrew, `brew install herdr`). Get the official `herdr` skill with `npx skills add https://github.com/herdrdev/herdr --skill herdr`."
+  },
+  "design": "The most important axis is \"does it load alongside, in situations where the official herdr skill loads.\" The two skills do not compete; their roles divide into syntax and judgment, and their overlapping names make it easy for only one to load. The next axes are intent to work the screen without the word herdr (4, 5, 6, 9, 22, 23) and receiving a tag (2). Items 11, 13, and 17 were first marked negative because the herdr-environment premise had not been folded into the judgment, then reversed — whatever word the user reaches for, if herdr owns this screen then this skill is the one that judges. Item 19 went the other way: marked positive, then reverted after two rounds of measurement. Negative cases are all near-misses: a one-shot investigation a subagent handles fine, an editor split, plain git, ordinary coding — things that overlap in keyword or concept but have nothing to do with herdr.",
+  "queries": [
+    {
+      "id": 1,
+      "query": "Use herdr pane split to open a pane beside this one and run pnpm test there. Tell me when the results are in.",
+      "should_trigger": true,
+      "axis": "loads alongside the official herdr skill",
+      "note": "The herdr CLI is named directly. If only the official herdr skill loads and this one is missing, the operation proceeds without the target-addressing and working-directory rules."
+    },
+    {
+      "id": 2,
+      "query": "<herdr id=\"a3f91c\" to=\"reviewer\" from=\"w1:p1\" reply=\"w1:p1\" hop=\"1\">\nCheck whether the migration script I just committed is missing a rollback path anywhere.\n</herdr>",
+      "should_trigger": true,
+      "axis": "receiving a tag",
+      "note": "The highest-priority trigger. Without loading, the work is done with no knowledge of how to reply, and the requester waits forever."
+    },
+    {
+      "id": 3,
+      "query": "Pull together the status of the agents that are up in herdr right now. I have lost track of who is doing what.",
+      "should_trigger": true,
+      "axis": "loads alongside the official herdr skill",
+      "note": "It looks like a read-only query, but the rules for interpreting the unknown and done states are needed."
+    },
+    {
+      "id": 4,
+      "query": "Open one on the right and bring the dev server up there — I will keep reading code here.",
+      "should_trigger": true,
+      "axis": "screen operation without the herdr name",
+      "note": "Both the reference point (my pane) and holding focus are at stake. Splitting the active pane carves up the screen the person was watching."
+    },
+    {
+      "id": 5,
+      "query": "Check whether the one I opened beside this earlier has results yet, and summarize them.",
+      "should_trigger": true,
+      "axis": "screen operation without the herdr name",
+      "note": "Choosing a read source and the alternate-screen fallback are both needed."
+    },
+    {
+      "id": 6,
+      "query": "This refactor is going to be sizable — put a codex alongside and let us run them together. We will be working in ~/.herdr-eval-repo.",
+      "should_trigger": true,
+      "axis": "screen operation without the herdr name",
+      "note": "The working directory was given explicitly. Fail to carry that path into startup and it cannot be undone."
+    },
+    {
+      "id": 7,
+      "query": "Hand the diff on the current branch to reviewer and tell me when the result comes back. I will look at something else.",
+      "should_trigger": true,
+      "axis": "asynchronous delegation",
+      "note": "A hand-off-and-step-back flow. Polling blocks the person's instructions in the meantime."
+    },
+    {
+      "id": 8,
+      "query": "The screen is split up so much I cannot read it. Tidy it up.",
+      "should_trigger": true,
+      "axis": "layout",
+      "note": "An instruction with several readings. Apply a guess and a correction comes straight back."
+    },
+    {
+      "id": 9,
+      "query": "I want to run the three tests currently going in parallel, each somewhere separate — what layout would be better?",
+      "should_trigger": true,
+      "axis": "screen operation without the herdr name",
+      "note": "The saturation rule for repeated splits in the same direction applies."
+    },
+    {
+      "id": 10,
+      "query": "The build running over in that pane looks like it is asking something — what should I answer?",
+      "should_trigger": true,
+      "axis": "observation",
+      "note": "Interpreting blocked and the rule against reading a sentence off a screen as a user decision both apply."
+    },
+    {
+      "id": 11,
+      "query": "Start a new session with tmux and run the log collector there. Name it log-collector.",
+      "should_trigger": true,
+      "axis": "creating a session in a herdr environment",
+      "note": "A request to start a new session in a herdr environment. Even when the user names a different multiplexer, herdr owns this screen, so creating it with herdr or saying that this is herdr is this skill's job. Either way it has to load to decide."
+    },
+    {
+      "id": 12,
+      "query": "Find every place in this repository that uses a deprecated API and give me the list.",
+      "should_trigger": false,
+      "axis": "a subagent is enough",
+      "note": "A one-shot investigation whose result is taken and used immediately. There is no screen for a person to watch and no context to leave behind."
+    },
+    {
+      "id": 13,
+      "query": "Run npm run build in the background and tell me when it finishes.",
+      "should_trigger": true,
+      "axis": "background execution and notification in a herdr environment",
+      "note": "In a herdr environment, running long work and reporting when it finishes has two valid paths: creating a pane and running it there, or handling it inside the session. Loading is what makes the first option visible. This item started matching once notification triggers went into the description, and it was flipped positive because the cost of loading wrongly (a few lines of documentation) is not comparable to the cost of not loading (a route that bypasses herdr). Do not try to narrow the trigger wording to carve this item out — \"tell me when it finishes\" and \"notify me when it finishes\" are the same thing to a user."
+    },
+    {
+      "id": 14,
+      "query": "I want to compare two files side by side in VS Code — what was the shortcut again?",
+      "should_trigger": false,
+      "axis": "editor split",
+      "note": "The concepts of side by side and splitting overlap, but this has nothing to do with a terminal multiplexer."
+    },
+    {
+      "id": 15,
+      "query": "I will cut a hotfix branch with git worktree and work there. Give me the commands.",
+      "should_trigger": false,
+      "axis": "plain git",
+      "note": "The name overlaps herdr's worktree command, but this is plain git work with no reason to go through herdr."
+    },
+    {
+      "id": 16,
+      "query": "Refactor this function. The conditional nesting is far too deep right now.",
+      "should_trigger": false,
+      "axis": "ordinary coding",
+      "note": "Nothing to do with the screen or with delegation."
+    },
+    {
+      "id": 17,
+      "query": "Could you raise a desktop notification when the build finishes?",
+      "should_trigger": true,
+      "axis": "notification in a herdr environment",
+      "note": "In a herdr environment the proper way to raise a notification is herdr's notification command, and driving the terminal app directly is a route this skill blocks. Without loading, that prohibition is unknown and the bypass is taken. It was first left as a near-miss negative and reversed after seeing run results."
+    },
+    {
+      "id": 18,
+      "query": "I cannot find the session I was working in last week. Where does Claude Code store conversation history?",
+      "should_trigger": false,
+      "axis": "session history",
+      "note": "The word session overlaps, but this asks about Claude Code's storage path, not a herdr pane. It is easy to confuse with the rule against parsing transcripts."
+    },
+    {
+      "id": 19,
+      "query": "I keep two terminal windows open and an environment variable only takes in one of them. Any idea why?",
+      "should_trigger": false,
+      "axis": "an environment question naming no pane",
+      "note": "Even in a herdr environment, expecting \"two terminal windows\" to be read as herdr panes is too much. Two rounds of measurement by different methods consistently did not load it, and the stated reasoning was sound — this is a general shell question about why environment variables are per-process. With no word naming a pane or the screen, it is not this skill's signal. It was first marked positive and reverted after run results."
+    },
+    {
+      "id": 20,
+      "query": "Review this PR. Just point out what actually needs fixing in the changes.",
+      "should_trigger": false,
+      "axis": "direct work that looks like delegation",
+      "note": "\"Review\" reads like something to delegate, but it is work to do right here. What finishes in one turn is done directly. In practice the run loads a code-review skill first and then queries herdr as well to pin down the target PR. Loading is not required, but it fed the judgment of \"do not act on a pane title read off a screen\", so it did no harm. Kept as a boundary case."
+    },
+    {
+      "id": 21,
+      "query": "There are three branches to investigate here — split it across three subagents and run them in parallel. Just collect the results for me.",
+      "should_trigger": false,
+      "axis": "the boundary with subagents",
+      "note": "\"Split it and run them in parallel\" overlaps this skill's trigger vocabulary head-on, but it is a one-shot investigation whose result is taken and used immediately. There is no need for a person to watch a screen and no reason to leave a pane carrying context. Task is right."
+    },
+    {
+      "id": 22,
+      "query": "Stack two sessions on the right and get to work.",
+      "should_trigger": true,
+      "axis": "a request without the herdr name",
+      "note": "This request failing to load the skill caused an incident: the environment was misjudged as the terminal app and the outer window the person was using got split. One cause was that the word for arranging a layout was missing from the trigger list."
+    },
+    {
+      "id": 23,
+      "query": "Split the screen into three equal columns.",
+      "should_trigger": true,
+      "axis": "a request without the herdr name",
+      "note": "A layout request carrying both direction and ratio. Syntax alone yields 1/2 - 1/4 - 1/4, so the judgment rules are needed."
+    }
+  ],
+  "criterion": "In a herdr environment, a request about the screen, panes, or agents loads it; anything else does not. That is the only criterion, and the axes below divide up where it tends to waver."
+}
