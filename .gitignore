@@ -35,3 +35,16 @@ yarn-error.log*
 # Logs & temporary files
 *.log
 *.tmp
+
+# Skill eval run outputs — these capture the machine they ran on:
+# absolute paths, live pane and agent names, and screen contents.
+skills/*/evals/iteration-*/
+skills/*/evals/results*.md
+skills/*/evals/benchmark.json
+skills/*/evals/grading.json
+skills/*/evals/feedback.json
+skills/*/evals/*.output
+
+# skill-creator scratch space, created next to the skill being worked on.
+skills/*/workspace/
+skills/*/*-workspace/
