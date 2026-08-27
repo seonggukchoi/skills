@@ -36,7 +36,8 @@ npx skills add seonggukchoi/skills --skill agent-creator --skill youtube-markdow
 | [`bitwarden-cli`](../skills/bitwarden-cli) | Bitwarden CLI로 비밀번호·시크릿·메모·Send 관리(VaultWarden / 자체 호스팅 / REST 포함). | `npx skills add seonggukchoi/skills --skill bitwarden-cli` |
 | [`codex-image-generation`](../skills/codex-image-generation) | Codex CLI 내장 `image_gen`으로 이미지 생성·편집(ChatGPT 구독 토큰, API 키 불필요). | `npx skills add seonggukchoi/skills --skill codex-image-generation` |
 | [`doc-to-markdown`](../skills/doc-to-markdown) | 문서 파일(PDF, DOCX, PPTX, XLSX, HWP)을 깔끔한 마크다운으로 변환. | `npx skills add seonggukchoi/skills --skill doc-to-markdown` |
+| [`herdr-enhanced`](../skills/herdr-enhanced) | herdr 터미널 멀티플렉서의 판단 규칙 — 팬 대상 지정, 배치, 생명주기, 에이전트 사이의 요청·회신 프로토콜. | `npx skills add seonggukchoi/skills --skill herdr-enhanced` |
 | [`watercrawl`](../skills/watercrawl) | self-hosted WaterCrawl API로 스크랩·크롤링·웹 검색(마크다운 출력, JS 렌더링, 스크린샷). | `npx skills add seonggukchoi/skills --skill watercrawl` |
 | [`youtube-markdown`](../skills/youtube-markdown) | 유튜브 영상을 타임스탬프·화면 캡처가 포함된 검색 가능한 마크다운으로 변환. | `npx skills add seonggukchoi/skills --skill youtube-markdown` |
 
-일부 스킬은 외부 도구가 필요합니다 — 예: `codex` CLI, Bitwarden `bw` CLI, `pandoc`, WaterCrawl 인스턴스(`watercrawl`용), Node.js 18+ 및 CDP 접속 가능한 브라우저(`agent-browser-human-control`용), 또는 Apple Silicon + `mlx-whisper`(`youtube-markdown`용). 각 스킬의 `SKILL.md`에서 사전 요구사항을 확인하세요.
+일부 스킬은 외부 도구가 필요합니다 — 예: `codex` CLI, Bitwarden `bw` CLI, `pandoc`, WaterCrawl 인스턴스(`watercrawl`용), `herdr` 터미널 멀티플렉서와 공식 `herdr` 스킬(`herdr-enhanced`용), Node.js 18+ 및 CDP 접속 가능한 브라우저(`agent-browser-human-control`용), 또는 Apple Silicon + `mlx-whisper`(`youtube-markdown`용). 각 스킬의 `SKILL.md`에서 사전 요구사항을 확인하세요.
