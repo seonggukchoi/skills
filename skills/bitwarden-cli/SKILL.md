@@ -451,16 +451,16 @@ bw export --format encrypted_json --password "$BACKUP_PASS" \
 
 ---
 
-## Wrap-up (when ending a session)
+## Ending a session
 
-When you're done, clean up with one of these.
+**Leave the session unlocked by default.** Locking after every task makes the user re-enter the master password on the next one, and because `bw unlock` invalidates the previous key, any `BW_SESSION` they already exported stops working too. Run the commands below only when the user asks to lock or sign out, or when the vault was unlocked on a machine that isn't theirs.
 
 ```bash
 bw lock          # lock the session only (stay signed in)
 bw logout        # full logout
 ```
 
-For automation scripts, set `trap 'bw lock --quiet' EXIT` so a session doesn't linger even on abnormal exit.
+Automation scripts are the exception: keep `trap 'bw lock --quiet' EXIT` there so a session doesn't linger even on abnormal exit. A CI runner is a throwaway environment, so nobody pays the cost of unlocking again.
 
 ---
 
@@ -471,6 +471,6 @@ For automation scripts, set `trap 'bw lock --quiet' EXIT` so a session doesn't l
 3. `bw login` or `bw login --apikey`.
 4. `export BW_SESSION="$(bw unlock --raw)"`.
 5. Do the actual work (`list`/`get`/`create`/`edit`/`delete`/`send`/`export`/`serve` …).
-6. Clean up with `bw lock` or `bw logout`.
+6. Leave the session as it is. Lock with `bw lock` or sign out with `bw logout` only when the user asks for it.
 
 Refer to the relevant file under `references/` for detailed options, JSON schemas, and the REST API as you go.
