@@ -94,14 +94,32 @@ the target shell, so angle brackets and newlines are rejected before execution (
 This error is **a signal to change route, not to retry.** The same arguments will always produce the
 same result.
 
-So delegating to someone you are starting fresh **splits into two steps.**
+So delegating to someone you are starting fresh **splits into three steps.** The middle one is a
+check, and it is the one that gets skipped — a startup that stops at a dialog (folder trust, loading
+external content) looks finished from the caller's side.
 
 ```bash
 # 1) Start it. Put nothing in the startup arguments.
 herdr agent start <name> --kind <kind> --pane <pane id>
 
-# 2) Send the request as a tag once it is up. The tag itself invokes the protocol, so there is
-#    nothing to send ahead of it.
+# 2) Look before sending. Startup can end at an approval dialog: `agent start` then returns
+#    `agent_not_ready`, and the agent is up as `blocked` with `launch_pending` set (measured).
+#    Send nothing until you have read the state.
+status=$(herdr agent get <name> 2>/dev/null \
+  | python3 -c 'import sys, json; print(json.load(sys.stdin)["result"]["agent"]["agent_status"])' 2>/dev/null)
+case "$status" in
+  idle) ;;                                   # ready — go on to step 3
+  *)
+    herdr agent read <name> --source recent-unwrapped --lines 40
+    # A dialog on that screen is a question to a person. Do not answer it, do not push the request
+    # through `pane run`, `pane send-text`, or `send-keys` — those bypass the blocked check, and
+    # Enter confirms whatever option is highlighted. Report what is on screen and end the turn;
+    # the delegation is pending, not sent.
+    exit 1 ;;
+esac
+
+# 3) Send the request as a tag. The tag itself invokes the protocol, so there is nothing to send
+#    ahead of it.
 req=$(cat <<'EOF'
 <herdr id="<request id>" to="<name>" from="<my address>" reply="<my address>" hop="1">
 Write the work to be done here.
@@ -111,14 +129,14 @@ EOF
 herdr agent prompt <name> "$req"
 ```
 
-**Every attempt to collapse those two steps into one is what this section exists to stop.** Finish it
+**Every attempt to collapse step 1 and step 3 into one is what this section exists to stop.** Finish it
 with a single line of startup argument and the reply vanishes wholesale, and that loss surfaces only
 after the other side has done all the work.
 
 **An agent may already be up even when the startup arguments end in an error.** The encoding
 rejection happens after startup, so calling `agent start` again returns `agent_name_taken` this time.
 When that happens, do not start fresh under a different name — look at that pane's state with
-`agent get` and `agent read`, then move to step 2.
+`agent get` and `agent read` (step 2), then move to step 3.
 
 ## Replying is an obligation
 
