@@ -113,6 +113,9 @@ with `pane move --split`, or close it and split again if it is empty.
 
 ## When creating several, fix the reference pane and the ratios up front
 
+**Unless the person states a ratio, divide as evenly as possible** — every pane gets the same share
+by default, and the steps below are how to get there.
+
 Even with the right direction, **which pane you split for the nth one** changes the picture. Keep
 splitting the newly created pane and you halve a half, so a request for three across yields
 **1/2 · 1/4 · 1/4** (measured: widths 129 · 64 · 64).
