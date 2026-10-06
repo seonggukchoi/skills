@@ -105,9 +105,9 @@ herdr agent start <name> --kind <kind> --pane <pane id>
 # 2) Look before sending. Startup can end at an approval dialog: `agent start` then returns
 #    `agent_not_ready`, and the agent is up as `blocked` with `launch_pending` set (measured).
 #    Send nothing until you have read the state.
-status=$(herdr agent get <name> 2>/dev/null \
+agent_status=$(herdr agent get <name> 2>/dev/null \
   | python3 -c 'import sys, json; print(json.load(sys.stdin)["result"]["agent"]["agent_status"])' 2>/dev/null)
-case "$status" in
+case "$agent_status" in
   idle) ;;                                   # ready — go on to step 3
   *)
     herdr agent read <name> --source recent-unwrapped --lines 40
@@ -177,11 +177,11 @@ arrives after the work has already set, and it has to be undone or redone from s
 
 **So never use `herdr agent prompt` on its own for a reply.** Called alone it just stacks onto the
 queue without looking at whether the other side is working. Use the block below instead — fill in
-`reply` and `body` and it handles the status query, the interrupt, the confirmation, the marker
+`reply_to` and `body` and it handles the status query, the interrupt, the confirmation, the marker
 correction, and the send in one go.
 
 ```bash
-reply=reviewer          # the tag's reply value. if it is a name, the owner may have changed since (see below)
+reply_to=reviewer       # the tag's reply value. if it is a name, the owner may have changed since (see below)
 body=$(cat <<'EOF'
 <herdr res="<id from the tag received>" from="<my address>" to="<reply value>" status="ok" fanout="<echo the value received>" interrupted="1">
 Two places. A missing expiry check in the auth middleware, and the exit condition of the retry loop.
@@ -190,13 +190,13 @@ EOF
 )
 
 # Read the status. "could not query" and "not working" are different conclusions, so keep them apart.
-status=$(herdr agent get "$reply" 2>/dev/null \
+agent_status=$(herdr agent get "$reply_to" 2>/dev/null \
   | python3 -c 'import sys, json; print(json.load(sys.stdin)["result"]["agent"]["agent_status"])' 2>/dev/null)
 
-case "$status" in
+case "$agent_status" in
   working)
-    herdr agent send-keys "$reply" esc
-    herdr agent wait "$reply" --timeout 3000 >/dev/null 2>&1 \
+    herdr agent send-keys "$reply_to" esc
+    herdr agent wait "$reply_to" --timeout 3000 >/dev/null 2>&1 \
       || body="${body/ interrupted=\"1\"/}" ;;
   blocked)
     # in this state agent prompt is rejected with agent_blocked — not one character gets in.
@@ -209,7 +209,7 @@ case "$status" in
     body="${body/ interrupted=\"1\"/}" ;;
 esac
 
-herdr agent prompt "$reply" "$body" \
+herdr agent prompt "$reply_to" "$body" \
   || echo "the send was rejected. the reply did not go through — check the state again and decide what to do." >&2
 ```
 
