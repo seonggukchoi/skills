@@ -76,7 +76,9 @@ herdr pane swap --source-pane "$HERDR_PANE_ID" --target-pane "$NEW"
 document's own example would cause the incident this document exists to prevent.
 
 A request for the top works the same way — split `down`, then swap. **Swapping moves your own pane.**
-The place the person was looking at changes, so say in your report that you swapped.
+The place the person was looking at changes, so say in your report that you swapped. Focus also goes
+to the source pane — here your own — and herdr shows that tab (measured), so this pattern fits only
+when your pane is the one on screen. The details are in "Rearranging panes inside one tab" below.
 
 `pane neighbor`, `focus`, `resize`, and `swap` all take four directions. That makes direction
 arguments look universal, but **only the splitting command is limited to two.**
