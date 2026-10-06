@@ -121,6 +121,8 @@ herdr pane list --workspace "$HERDR_WORKSPACE_ID"   # this workspace only — co
 herdr tab list --workspace "$HERDR_WORKSPACE_ID"
 ```
 
-If a pane you just opened is not in your tab, it has drifted. Pull it back with the pane-move
-command. Leave the layout wrong and the person moves it by hand — at which point there was no reason
+If a pane you just opened is not in your tab, it has drifted. Pull it back with
+`pane move <pane> --tab <your tab> --split right|down --target-pane <pane beside it> --no-focus`.
+This works because the pane is in another tab; a move aimed at the tab the pane is already in does
+nothing and still exits 0 (measured). For rearranging inside one tab, see `layout.md`. Leave the layout wrong and the person moves it by hand — at which point there was no reason
 to use this tool at all.

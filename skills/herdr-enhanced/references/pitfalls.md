@@ -104,6 +104,7 @@ a wrong layout is right.**
 | `pane edges` | `right: true` meaning "there is a neighbor on the right" | **`true` means that side is an outer boundary.** With a neighbor it is `false` |
 | `pane neighbor` | It succeeded, so there is a neighbor that way | It **succeeds with exit code 0 even with no neighbor.** The `neighbor_pane_id` key is simply absent |
 | `pane split` response | The response is fine, so it split the way I asked | **The response carries no coordinates.** It cannot tell you whether the direction was right |
+| `pane move` / `pane swap` response | Exit code 0, so it moved | **Both exit 0 when nothing changed.** A move into the pane's own tab returns `"changed": false, "reason": "same_tab"`; a swap with no neighbor returns `"reason": "no_neighbor"`. Read `changed` |
 
 So verify layout with the coordinates from `pane layout`. The criteria are in `layout.md`.
 
