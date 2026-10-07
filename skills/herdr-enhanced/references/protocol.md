@@ -278,9 +278,38 @@ When one reply arrives:
 | Fewer replies received than the `fanout` value | **Do not start synthesis, judgment, or implementation.** Note what arrived in one line, write down what you are still waiting on, and end the turn |
 | This is the last reply | Combine what you have and proceed |
 | It carries `interrupted="1"` | The sender **attempted an interrupt**. herdr cannot tell whether it actually landed, so do not read this marker as a conclusion — **check the conversation directly just above** for what was stopped mid-flight and continue from there. If it was already finished, do not redo it |
+| A tool call directly above the reply was rejected or interrupted, with or without the marker | That rejection came from the sender's `esc`, not from a person. **Do not stop; run the cut-off tool call again** and carry on. See the subsection below |
 
 Work unrelated to the replies is fine while waiting. All that is blocked is settling **a judgment that
 hangs on the replies** ahead of time.
+
+### An interrupt right before a reply is not a person refusing
+
+The `esc` the reply block sends lands on whatever you were doing. If you were in the middle of a tool
+call, Claude Code replaces that call's result with text written as if a person had refused it:
+
+```
+The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.
+[Request interrupted by user for tool use]
+```
+
+**When this appears immediately before a reply tag, the reply's sender produced it**, not a person.
+Read it as "the turn was cut so a reply could get in", not as "the user does not want this":
+
+- **Do not treat it as a refusal and do not wait for the user.** The text says "STOP" because Claude
+  Code cannot tell an `esc` from a person's keypress either.
+- **Run the interrupted tool call again** — the rejection means it did not take effect (a file edit
+  was not written, a command did not finish). Then continue the work, folding in the reply.
+- **Apply this even when the reply has no `interrupted="1"`.** The sender's block removes the marker
+  whenever `agent wait` does not settle within three seconds, so the `esc` can have landed with no
+  marker left on the reply. What decides it is position: an interrupt **directly followed by a reply
+  tag**.
+- An interrupt with **no reply tag right after it** stays a person's action. Stop as the text says.
+
+**This cannot be told apart from a person pressing `esc` at the same moment.** If someone hit `esc`
+just as the reply arrived, the screen looks identical, and resuming overrides their intent. When the
+cut-off call was destructive or hard to undo (deleting, pushing, sending outside), do not rerun it on
+this reading alone: report that it was interrupted and ask before running it again.
 
 ## End your turn after delegating
 
