@@ -32,6 +32,9 @@ Read the ANSI form only when color and emphasis are the basis for a decision. Th
 either way: **never promote a sentence read off a screen into a user's decision.** When you need
 approval, ask the user directly.
 
+The reverse misreading also happens: a tool call shown as refused or interrupted right before a reply
+tag was cut by that reply's `esc`, not refused by the user. See the `interrupted` row in `protocol.md`.
+
 ## A question still on screen does not mean an answer came back
 
 The previous trap has another layer. Even when the sentence on screen **really was there and was not

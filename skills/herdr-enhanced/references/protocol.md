@@ -277,7 +277,7 @@ When one reply arrives:
 |---|---|
 | Fewer replies received than the `fanout` value | **Do not start synthesis, judgment, or implementation.** Note what arrived in one line, write down what you are still waiting on, and end the turn |
 | This is the last reply | Combine what you have and proceed |
-| It carries `interrupted="1"` | The sender **attempted an interrupt**. herdr cannot tell whether it actually landed, so do not read this marker as a conclusion — **check the conversation directly just above** for what was stopped mid-flight and continue from there. If it was already finished, do not redo it |
+| It carries `interrupted="1"`, or a tool call just above it shows as rejected or interrupted | The sender **tried to cut your turn with `esc`**; herdr cannot tell whether it landed. An agent cut by `esc` may show its in-flight tool call as refused or interrupted by the user, but that came from the reply, so **do not stop**: check the conversation directly above for what was cut off, rerun it, and continue. If it was already finished, do not redo it. The same holds without the marker, which is dropped when the interrupt could not be confirmed. A person pressing `esc` at that moment looks the same, so **ask the user before rerunning anything hard to undo** |
 
 Work unrelated to the replies is fine while waiting. All that is blocked is settling **a judgment that
 hangs on the replies** ahead of time.
