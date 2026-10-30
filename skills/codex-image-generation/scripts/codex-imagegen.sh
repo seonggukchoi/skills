@@ -6,7 +6,8 @@
 #   codex-imagegen.sh edit <src.png> "<change>" <out.png> [<extra-src.png> ...]
 #
 # Saves the result to the given <out.png> (both absolute and relative paths allowed) and prints its absolute path to stdout.
-# If codex fails to copy the result to the target path, it falls back to retrieving the latest file from ~/.codex/generated_images.
+# If codex fails to copy the result to the target path, it falls back to retrieving the newest PNG that
+# appeared under ~/.codex/generated_images after this run started.
 #
 # Note: the result arrives by having codex copy the file into the workspace, and codex runs under
 #       --sandbox workspace-write, so <out.png> must sit in a writable location (e.g., under the current directory).
@@ -28,19 +29,26 @@ resolve_codex() {
   return 1
 }
 
-# If the expected output path has no file, copy the latest one from generated_images to retrieve it (assumes sequential execution).
+# If the expected output path has no file, copy the newest PNG written under generated_images since
+# START_MARKER was touched (assumes sequential execution).
+#
+# The file name changed across codex versions: older ones wrote <UUID>/ig_*.png, 0.165.0 writes
+# <session id>/exec-*.png. Matching any *.png newer than the marker covers both, and the marker keeps
+# an image left over from an earlier run from being returned as this run's result.
+# find -newer and ls -t are both POSIX, so this works with macOS's BSD tools (unlike find -printf).
 recover_output() {
   local out="$1"
   [ -f "$out" ] && { printf '%s\n' "$out"; return 0; }
   local latest
-  latest=$(ls -t "$HOME/.codex/generated_images"/*/ig_*.png 2>/dev/null | head -1 || true)
+  latest=$(find "$HOME/.codex/generated_images" -type f -name '*.png' -newer "$START_MARKER" \
+    -exec ls -t {} + 2>/dev/null | head -1 || true)
   if [ -n "$latest" ] && cp "$latest" "$out" 2>/dev/null && [ -f "$out" ]; then
     printf '%s\n' "$out"; return 0
   fi
   die "Failed to produce the result file: $out  (check 'codex login status' and 'codex features list | grep image_generation')"
 }
 
-# Uses the global PROMPT, OUT_ABS, CODEX. Takes codex exec options (e.g., -i) as arguments.
+# Uses the global PROMPT, OUT_ABS, CODEX, START_MARKER. Takes codex exec options (e.g., -i) as arguments.
 #
 # Two details in the command line below are load-bearing:
 #   --            `-i/--image` takes a variadic list, so without a separator it swallows the
@@ -52,6 +60,8 @@ recover_output() {
 # a model the account cannot use, an expired login — and no generic hint can stand in for it.
 run_image_gen() {
   mkdir -p "$(dirname "$OUT_ABS")"
+  START_MARKER=$(mktemp)
+  trap 'rm -f "$START_MARKER"' EXIT
   local output
   if ! output=$("$CODEX" exec --sandbox workspace-write --skip-git-repo-check "$@" -- "$PROMPT" 2>&1 </dev/null); then
     printf 'codex-imagegen: codex exec failed. Last output from codex:\n' >&2

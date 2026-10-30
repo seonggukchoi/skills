@@ -54,7 +54,7 @@ bash scripts/codex-imagegen.sh edit apple.png "make the apple blue instead of re
 bash scripts/codex-imagegen.sh edit base.png "place the logo top-right" out.png logo.png
 ```
 
-`<out.png>` accepts both relative and absolute paths, and the helper creates any needed parent directories. If codex fails to copy the result to the target path, it automatically retrieves the latest file from `~/.codex/generated_images`. Specify size, aspect ratio, etc. in natural language in the prompt (e.g., `... wide 3:2 composition. Size 1536x1024.`).
+`<out.png>` accepts both relative and absolute paths, and the helper creates any needed parent directories. If codex fails to copy the result to the target path, it automatically retrieves the newest PNG that appeared under `~/.codex/generated_images` after the run started. Specify size, aspect ratio, etc. in natural language in the prompt (e.g., `... wide 3:2 composition. Size 1536x1024.`).
 
 ### Direct invocation (without the helper / how it works)
 
@@ -81,7 +81,7 @@ After saving, copy it into the current working directory as edited.png and print
 
 ### Getting the result (when invoking directly)
 
-The built-in tool saves each result in a different UUID folder (`~/.codex/generated_images/<UUID>/ig_*.png`). So rather than finding it with a fixed glob, the most robust approach is to **have codex copy it into the working directory and use the path it reports**.
+The built-in tool saves each result in a different folder per run. In codex-cli 0.165.0 the path is `~/.codex/generated_images/<session ID>/exec-<UUID>.png`, where the folder is the Codex session ID of that run (its rollout log sits under `~/.codex/sessions/YYYY/MM/DD/`); older versions wrote `<UUID>/ig_*.png` instead. So rather than finding it with a fixed glob, the most robust approach is to **have codex copy it into the working directory and use the path it reports**.
 
 ```bash
 # 1) Recommended: capture the absolute path printed by the prompt via -o and parse it
@@ -90,11 +90,14 @@ codex exec --sandbox workspace-write --skip-git-repo-check -o /tmp/last.txt \
 After saving, copy it into the current working directory as out.png and print its absolute path on its own line."
 grep -oE '/[^[:space:]]+\.png' /tmp/last.txt | tail -1
 
-# 2) Find it directly: the original lives under a UUID subfolder (the glob needs */, portable on macOS)
-ls -t "$HOME/.codex/generated_images"/*/ig_*.png 2>/dev/null | head -1
+# 2) Find it directly: touch a marker before the run, then take the newest PNG written after it
+marker=$(mktemp)
+codex exec ...   # the generation command
+find "$HOME/.codex/generated_images" -type f -name '*.png' -newer "$marker" -exec ls -t {} + | head -1
+rm -f "$marker"
 ```
 
-> Note: the path is `generated_images/<UUID>/ig_*.png`, **not a direct child**. Also, `find ... -printf` is GNU-only and fails with macOS's default `find` (BSD), so use the `ls -t` glob above.
+> Note: the file sits in a per-run subfolder, **not directly under `generated_images`**, and its name depends on the codex version (`ig_*.png` in older releases, `exec-*.png` in 0.165.0), so match any `*.png` rather than one prefix. The `-newer` marker keeps an image from an earlier run from being picked up. `find ... -printf` is GNU-only and fails with macOS's default `find` (BSD); `-newer` and `ls -t` work on both.
 
 ### Tips
 - If the tone is off, change prompt elements **one at a time** and regenerate.
