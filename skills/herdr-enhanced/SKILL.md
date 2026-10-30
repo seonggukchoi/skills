@@ -27,7 +27,8 @@ skill decides is **which pane to target, which way to split, what to verify befo
 to get results back from work you handed off**.
 
 Without the official skill your only reference is `herdr --help`, so you end up looking things up
-every time. Install it if it is missing.
+every time. Install it if it is missing; `herdr --skill` prints the copy matching the installed
+binary.
 
 ```bash
 npx skills add https://github.com/herdrdev/herdr --skill herdr

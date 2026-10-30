@@ -304,8 +304,8 @@ tells you which request each answers.
 
 ## Distinguish having sent from having been received
 
-`agent prompt` succeeding means **the text was delivered to the other side**, not that they read it
-and started processing. If they were working, it queues and gets consumed later.
+`agent prompt` succeeding means **the text was delivered to the other side**, not that they started
+a turn (the official skill says the same).
 
 There is an incident that blurred the two. A send to a target whose status could not be queried was
 taken as receipt, the safety net was removed, and **the replies to a delegation spread across several

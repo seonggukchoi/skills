@@ -9,9 +9,8 @@ A coding agent's working directory **is decided the moment it starts and cannot 
 afterwards.** Project history is filed under that path too. If you realize later that you started it
 in the wrong place, **there is no way out but closing that pane and making it again.**
 
-**But confirm you created that pane before you close it.** This is where the official skill's
-prohibition applies: do not close a workspace, tab, pane, or session you did not create unless the
-person explicitly asks. If the misplaced thing is a pane you just made yourself, closing it is fine.
+**But confirm you created that pane before you close it** (the official skill's safety rules). If
+the misplaced thing is a pane you just made yourself, closing it is fine.
 
 **If you put an agent on a pane the person was already using, keep the pane.** The catch is that
 **herdr has no command that takes down only the agent** — there is no stop, kill, or close under
@@ -36,19 +35,13 @@ a whole session started in a home directory being thrown away; everything accumu
 went with it.
 
 Splitting a pane **quietly uses that shell's current location** when you do not name a working
-directory. It is easy to end up starting in a home or skill directory.
-
-```bash
-herdr pane split --current --direction right --cwd "$PWD" --no-focus
-```
+directory, which is why the official skill always passes `--cwd`. What is left to judge:
 
 - When the repository to work in is already settled, **pass that path from the start.** Inheriting
   the calling pane's location is the default; if the user named a different repository, pass that
   path.
 - The creation response carries the path. **Check that line right there.** Catching it here is
   cheap.
-- Do not create a new workspace, tab, or worktree unless the user explicitly asks. That goes double
-  for a worktree, which means creating a new working directory.
 
 ## Do not resurrect what is gone on your own
 
@@ -80,15 +73,6 @@ be read as "it never happened." What you cannot verify, **say you cannot verify.
 
 ## Do not read a status name as a conclusion
 
-The statuses herdr attaches are observations, not verdicts.
-
-| Status | What it actually means | What not to do |
-|---|---|---|
-| `idle` | Ready for input, and seen on a screen whose tab was focused | |
-| `done` | The same idle state, after unacknowledged background work finished | Do not assume anyone saw the result |
-| `blocked` | herdr recognized an approval or question screen | Do not read it as failure. Look at what is being asked first |
-| `working` | Working | |
-| `unknown` | An agent is there, but herdr could not classify it | **This is not evidence of completion** |
-
-Moving focus, or calling a focus command against that pane, counts as acknowledgement. **Reading via
-the CLI alone does not.** Background work staying at `done` while you only query it is normal.
+The statuses herdr attaches are observations, not verdicts; their meanings are in the official
+skill's "Understand layout, panes, and agents". Two readings to hold on to: `done` does not mean
+anyone saw the result, and `blocked` is not a failure, so look at what is being asked first.
