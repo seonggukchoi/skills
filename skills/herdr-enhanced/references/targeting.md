@@ -11,8 +11,10 @@ of these is **the pane that received the instruction**. That holds even when the
 in another tab at this moment. They spoke **to you**; they did not point at whatever was on their
 own screen.
 
-herdr's pane commands fall back to **the UI-focused pane** when you omit the target. That pane may
-be in active use by the person, or belong to another client entirely. An incident of exactly this
+Omit the target and most herdr commands fall back to **the UI-focused pane**. That pane may be in
+active use by the person, or belong to another client entirely. (The official skill says an omitted
+`pane split` target now uses the calling pane when `HERDR_PANE_ID` is set, but other commands may
+still take the focused pane, so the rule below does not change.) An incident of exactly this
 shape has happened: a session running in the background received "open it on the right", split the
 active window, and the full-width window the person had been using became half-width.
 
@@ -40,7 +42,8 @@ commands, but in practice it comes down to **how that command accepts its target
 
 | How the target is accepted | Commands | `--current` |
 |---|---|---|
-| Options only (`[OPTIONS]`) | `pane current`, `pane layout`, `pane edges`, `pane process-info`, `pane split` | works |
+| Options only (`[OPTIONS]`) | `pane current`, `pane layout`, `pane edges`, `pane process-info` | works |
+| Either (`[PANE_ID]` or an option) | `pane split`, `pane zoom` | works |
 | Positional argument (`<PANE_ID>`) | `pane read`, `pane get`, `agent get`, `agent read` | **does not work** |
 
 Used with the latter, `--current` is read as a pane-name string and you get
@@ -56,6 +59,7 @@ shape, you will not find the cause.
 | How the target is accepted | How to point at your own pane |
 |---|---|
 | Options only | `--pane "$HERDR_PANE_ID"` or `--current` |
+| Either | any of the three |
 | Positional argument | `"$HERDR_PANE_ID"` |
 
 When in doubt, read that command's `--help`. A `<PANE_ID>` in the usage line means positional;
