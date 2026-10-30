@@ -71,7 +71,8 @@ at hand, which means **you skip the row for something you have already done** â€
 loaded this to check status once passed over a plain-text delegation it had just sent, treating it
 as "already handed off". The rule it broke is only caught by this list.
 
-1. **Never omit the target.** Omitting it takes the UI-focused pane, which someone may be using.
+1. **Never omit the target.** Omitted, most commands take the UI-focused pane, which someone may be
+   using.
    Name it with a pane ID read from a response, a live agent name, or `--current`. **`--current`
    depends on the command** â€” for commands that take the target as a positional argument
    (`pane read`, `pane get`, `agent get`, `agent read`) it reads as a pane name and yields
