@@ -58,8 +58,7 @@ you did not send to is a silent omission**, so the scope must not be narrowed.
 
 Running an ordinary command in an empty shell pane with no agent is not delegation. That path
 (`pane run`, `pane wait-output`) belongs to the **official `herdr` skill** — read the syntax there
-rather than copying it here. Just remember that `pane wait-output` waits forever when called without
-`--timeout`.
+rather than copying it here.
 
 ## Word the request so nobody has to ask back
 

@@ -65,21 +65,12 @@ shape, you will not find the cause.
 When in doubt, read that command's `--help`. A `<PANE_ID>` in the usage line means positional;
 `[OPTIONS]` alone means an option.
 
-IDs are opaque, stable handles. **Read them out of JSON responses; never infer them from sidebar
-order or from examples in documentation.** IDs of closed tabs and panes are not recycled, so a stale
-ID will not point at someone else's pane — but a guessed ID may have been someone else's from the
-start.
-
-**Names are different — they are recycled.** A name follows the current occupant of a pane, and
-when that agent ends or is replaced the name is released, so **another agent can take it over.**
-This bites on long delegations: hold a reply address as a name, send to it twenty minutes later, and
-the name may have changed hands in the meantime, **dropping your result into an unrelated session.**
-Addresses you have to hold for a while should be pane IDs, or verify with `agent get` right before
-you send that it is still the same target.
-
-Move a pane to another workspace and **you get a new pane ID scoped to that workspace.** Read the
-new ID out of the move response and carry on with it. The old ID resolves only within the caller
-context the process inherited, so it must not be used as a general target.
+How IDs and names behave (read from JSON, not reused, renumbered by a workspace move; names follow
+the pane's occupant) is in the official skill's "Use IDs and caller context". The judgment that
+follows from it: **a name is recycled, so it bites on long delegations.** Hold a reply address as a
+name, send to it twenty minutes later, and the name may have changed hands in the meantime,
+**dropping your result into an unrelated session.** Addresses you have to hold for a while should be
+pane IDs, or verify with `agent get` right before you send that it is still the same target.
 
 ## When resolution fails, stop — do not silently fall back
 

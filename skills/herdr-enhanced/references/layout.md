@@ -47,14 +47,8 @@ rule offers an answer that differs from the instruction, and being more concrete
 way. herdr windows are usually wider than 250 columns, so the shape rule **points at `right` almost
 every time.** That is why an instruction of "stacked" gets overturned here more than anywhere else.
 
-Look at the target pane's shape only when no direction was stated.
-
-```bash
-herdr pane layout --pane "$HERDR_PANE_ID"
-```
-
-- **Wide panes split to the right** — `--direction right`
-- **Narrow or tall panes split downward** — `--direction down`
+Look at the target pane's shape, with the official skill's rule (wide panes right, narrow or tall
+panes down), only when no direction was stated.
 
 ## Left and top mean splitting first, then swapping
 
@@ -217,9 +211,9 @@ first, the second", build them the way shown above and attach names with `pane r
 
 ## Do not keep stacking in the same direction
 
-Stack only downward and from the fourth pane on, each one is around ten rows and **unreadable.**
-Splitting a 71-row pane downward three times in herdr produced 36 · 18 · 17 rows (measured). Only
-stacking across does the same thing.
+The official skill already warns against repeated same-direction splits. How fast it degrades:
+splitting a 71-row pane downward three times produced 36 · 18 · 17 rows (measured), and stacking
+across does the same.
 
 Before splitting an already narrow pane again, consider splitting on the other axis or sending it to
 a separate tab. Creating a new tab happens only when the user asks, but **asking beats creating an
@@ -291,17 +285,10 @@ extension.
 
 ## Do not steal the person's focus
 
-Do not move focus when creating panes or running commands as background work. Move focus only when
-the user asks directly, as in "take me over there".
-
-```bash
-herdr pane split --current --direction right --cwd "$PWD" --no-focus
-herdr pane split --current --direction down  --cwd "$PWD" --no-focus
-```
-
-Moving focus is relatively easy to undo, but **it breaks the person's context if they were reading or
-typing.** When the situation calls for an alert, raising a notification is an alternative to moving
-the screen.
+Background work keeps `--no-focus` (the official skill's safety rules). Move focus only when the user
+asks directly, as in "take me over there". Moving focus is relatively easy to undo, but **it breaks
+the person's context if they were reading or typing.** When the situation calls for an alert, raise
+a notification instead of moving the screen.
 
 ```bash
 herdr notification show "tests finished" --body "results are in the reviewer pane" --sound done

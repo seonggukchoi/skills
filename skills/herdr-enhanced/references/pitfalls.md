@@ -66,7 +66,7 @@ wrong.** In herdr this shows up in these shapes.
 | Symptom | Premise to doubt |
 |---|---|
 | Agent startup ends in a timeout | Was that pane really an empty shell at a prompt |
-| A prompt is rejected as stalled (`agent_prompt_stalled`) | **Is the other side really processing your text.** This error fires when a submission sent with `--wait` **has already been accepted** and the other side shows no state change within five seconds (measured: the official skill's condition). So **the text is already with them** — read it as a failure and resend, and you make them do the same work twice. Do not resend; check with `agent get` and `agent read` whether it was processed |
+| A prompt is rejected as stalled (`agent_prompt_stalled`) | **Is the other side really processing your text.** The submission was already accepted (the official skill's `agent prompt` notes), so **the text is already with them.** Do not resend; check with `agent get` and `agent read` whether it was processed |
 | Reading returns nothing | Is it the right target pane. Is it running on an alternate screen |
 | A command landed on someone else's pane | Did an omitted target grab the focused pane |
 
@@ -123,19 +123,9 @@ the cause.
 
 ## Do not turn a failed confirmation straight into a resend
 
-Sending a prompt and failing to confirm it started **is not the same as failing to send.** The text
-may already be in the other side's input or queue. Resend as-is and you make them do the same work
-twice.
-
-Query the state first and see whether they already processed it.
-
-```bash
-herdr agent get <target>
-herdr agent read <target> --source recent-unwrapped --lines 80
-```
-
-For the same reason, do not stack repeated wait commands just because no response came. What to wait
-for is covered in `protocol.md`.
+The official skill already says a timeout or stalled wait does not prove the prompt was never
+delivered. For the same reason, do not stack repeated wait commands just because no response came.
+What to wait for is covered in `protocol.md`.
 
 ## Do not parse transcripts to find a target
 
@@ -152,13 +142,3 @@ herdr workspace list
 ```
 
 Not here means herdr does not know about it. Do not fill the gap with a guess; ask which one.
-
-## When reading shows nothing, look for the reason before raising the line count
-
-If raising the line count still does not reveal a completed response, that pane's agent is **running
-on an alternate screen.** Lines pushed off an alternate screen do not land in scrollback, so a bigger
-line count recovers nothing.
-
-At that point, have the agent write the full response to a file in a temporary directory and reply
-with just the path, then read the file yourself. **This is a fallback after a failed read, so do not
-demand file output in the initial prompt.**
