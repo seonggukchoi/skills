@@ -7,7 +7,7 @@
     "prerequisites": "herdr must be installed — https://herdr.dev (with Homebrew, `brew install herdr`). Get the official `herdr` skill with `npx skills add https://github.com/herdrdev/herdr --skill herdr`.",
     "hc_mode": "Queries carrying \"mode\": \"hc\" run in a shell where $HC_TERMINAL_ID is set and HERDR_ENV and $HERDR_PANE_ID are not, that is, inside a terminal started by hc (the herdr app's CLI). The rest run in the herdr TUI as above. Run each group in its own environment; mixed, the hc cases fail in the TUI and the TUI cases fail under hc, and both are correct behavior."
   },
-  "design": "The most important axis is \"does it load alongside, in situations where the official herdr skill loads.\" The two skills do not compete; their roles divide into syntax and judgment, and their overlapping names make it easy for only one to load. The next axes are intent to work the screen without the word herdr (4, 5, 6, 9, 22, 23) and receiving a tag (2). Items 11, 13, and 17 were first marked negative because the herdr-environment premise had not been folded into the judgment, then reversed — whatever word the user reaches for, if herdr owns this screen then this skill is the one that judges. Item 19 went the other way: marked positive, then reverted after two rounds of measurement. Negative cases are all near-misses: a one-shot investigation a subagent handles fine, an editor split, plain git, ordinary coding — things that overlap in keyword or concept but have nothing to do with herdr. Items 24 to 29 cover hc mode (the herdr app's hc CLI) and run in an hc terminal: receiving the tag as hc delivers it (24, 25), receiving hc's own messages (26, 27), delegation without the herdr name (28), and a near-miss on the letters hc (29).",
+  "design": "The most important axis is \"does it load alongside, in situations where the official herdr skill loads.\" The two skills do not compete; their roles divide into syntax and judgment, and their overlapping names make it easy for only one to load. The next axes are intent to work the screen without the word herdr (4, 5, 6, 9, 22, 23) and receiving a tag (2). Items 11, 13, and 17 were first marked negative because the herdr-environment premise had not been folded into the judgment, then reversed — whatever word the user reaches for, if herdr owns this screen then this skill is the one that judges. Item 19 went the other way: marked positive, then reverted after two rounds of measurement. Negative cases are all near-misses: a one-shot investigation a subagent handles fine, an editor split, plain git, ordinary coding — things that overlap in keyword or concept but have nothing to do with herdr. Items 24 to 29 cover hc mode (the herdr app's hc CLI) and run in an hc terminal: receiving the tag as hc delivers it, wrapped and unwrapped (24, 25), receiving hc's own messages (26, 27), delegation without the herdr name (28), and a near-miss on the letters hc (29).",
   "queries": [
     {
       "id": 1,
@@ -173,18 +173,18 @@
     {
       "id": 24,
       "mode": "hc",
-      "query": "<hc from=\"t4 lead\"><herdr id=\"c19e2a\" hop=\"1\" fanout=\"2\">\nCheck whether src/auth has any token comparison that is not constant-time. Reply with file and line for each.\n</herdr></hc>",
+      "query": "<hc from=\"t4 lead\"><herdr id=\"c19e2a\" to=\"t9\" from=\"t4\" reply=\"t4\" hop=\"1\" fanout=\"2\">\nCheck whether src/auth has any token comparison that is not constant-time. Reply with file and line for each.\n</herdr></hc>",
       "should_trigger": true,
       "axis": "receiving a tag (hc mode)",
-      "note": "What an agent receives when another agent sends a herdr tag with hc send: hc's sender tag and the address-free herdr tag on one line (measured). The herdr tag is not at the start of the message, so a trigger that only looks at the first characters misses it."
+      "note": "What an agent receives when another agent sends a herdr tag with hc send: hc's wrapping and the herdr tag on one line (measured). The herdr tag is not at the start of the message, so a trigger that only looks at the first characters misses it."
     },
     {
       "id": 25,
       "mode": "hc",
-      "query": "<herdr id=\"5d0b7e\" hop=\"1\">\nRun only the unit tests in this repository and reply with the names of failing cases and the first line of each error.\n</herdr>",
+      "query": "<herdr id=\"5d0b7e\" to=\"t9\" from=\"t4\" reply=\"t4\" hop=\"1\">\nRun only the unit tests in this repository and reply with the names of failing cases and the first line of each error.\n</herdr>",
       "should_trigger": true,
       "axis": "receiving a tag (hc mode)",
-      "note": "A first task given as the hc run argument arrives with no hc tag (measured), so the herdr tag has no addresses at all. Without loading, the receiver does not know the reply goes to its parent."
+      "note": "A first task given as the hc run argument arrives with no hc wrapping (measured), so it looks like a TUI tag except that the addresses are hc's tN. Without loading, the receiver does not know to reply with hc send."
     },
     {
       "id": 26,
