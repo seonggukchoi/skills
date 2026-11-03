@@ -4,9 +4,10 @@
   "environment": {
     "required": "Run it in a shell where HERDR_ENV=1 or $HERDR_PANE_ID is set",
     "why": "The description presumes both variables, so running outside herdr makes every should_trigger case fail, and that is correct behavior. Results from that state must not be read as a regression.",
-    "prerequisites": "herdr must be installed — https://herdr.dev (with Homebrew, `brew install herdr`). Get the official `herdr` skill with `npx skills add https://github.com/herdrdev/herdr --skill herdr`."
+    "prerequisites": "herdr must be installed — https://herdr.dev (with Homebrew, `brew install herdr`). Get the official `herdr` skill with `npx skills add https://github.com/herdrdev/herdr --skill herdr`.",
+    "hc_mode": "Queries carrying \"mode\": \"hc\" run in a shell where $HC_TERMINAL_ID is set and HERDR_ENV and $HERDR_PANE_ID are not, that is, inside a terminal started by hc (the herdr app's CLI). The rest run in the herdr TUI as above. Run each group in its own environment; mixed, the hc cases fail in the TUI and the TUI cases fail under hc, and both are correct behavior."
   },
-  "design": "The most important axis is \"does it load alongside, in situations where the official herdr skill loads.\" The two skills do not compete; their roles divide into syntax and judgment, and their overlapping names make it easy for only one to load. The next axes are intent to work the screen without the word herdr (4, 5, 6, 9, 22, 23) and receiving a tag (2). Items 11, 13, and 17 were first marked negative because the herdr-environment premise had not been folded into the judgment, then reversed — whatever word the user reaches for, if herdr owns this screen then this skill is the one that judges. Item 19 went the other way: marked positive, then reverted after two rounds of measurement. Negative cases are all near-misses: a one-shot investigation a subagent handles fine, an editor split, plain git, ordinary coding — things that overlap in keyword or concept but have nothing to do with herdr.",
+  "design": "The most important axis is \"does it load alongside, in situations where the official herdr skill loads.\" The two skills do not compete; their roles divide into syntax and judgment, and their overlapping names make it easy for only one to load. The next axes are intent to work the screen without the word herdr (4, 5, 6, 9, 22, 23) and receiving a tag (2). Items 11, 13, and 17 were first marked negative because the herdr-environment premise had not been folded into the judgment, then reversed — whatever word the user reaches for, if herdr owns this screen then this skill is the one that judges. Item 19 went the other way: marked positive, then reverted after two rounds of measurement. Negative cases are all near-misses: a one-shot investigation a subagent handles fine, an editor split, plain git, ordinary coding — things that overlap in keyword or concept but have nothing to do with herdr. Items 24 to 29 cover hc mode (the herdr app's hc CLI) and run in an hc terminal: receiving the tag as hc delivers it (24, 25), receiving hc's own messages (26, 27), delegation without the herdr name (28), and a near-miss on the letters hc (29).",
   "queries": [
     {
       "id": 1,
@@ -168,6 +169,54 @@
       "should_trigger": true,
       "axis": "a request without the herdr name",
       "note": "A layout request carrying both direction and ratio. Syntax alone yields 1/2 - 1/4 - 1/4, so the judgment rules are needed."
+    },
+    {
+      "id": 24,
+      "mode": "hc",
+      "query": "<hc from=\"t4 lead\"><herdr id=\"c19e2a\" hop=\"1\" fanout=\"2\">\nCheck whether src/auth has any token comparison that is not constant-time. Reply with file and line for each.\n</herdr></hc>",
+      "should_trigger": true,
+      "axis": "receiving a tag (hc mode)",
+      "note": "What an agent receives when another agent sends a herdr tag with hc send: hc's sender tag and the address-free herdr tag on one line (measured). The herdr tag is not at the start of the message, so a trigger that only looks at the first characters misses it."
+    },
+    {
+      "id": 25,
+      "mode": "hc",
+      "query": "<herdr id=\"5d0b7e\" hop=\"1\">\nRun only the unit tests in this repository and reply with the names of failing cases and the first line of each error.\n</herdr>",
+      "should_trigger": true,
+      "axis": "receiving a tag (hc mode)",
+      "note": "A first task given as the hc run argument arrives with no hc tag (measured), so the herdr tag has no addresses at all. Without loading, the receiver does not know the reply goes to its parent."
+    },
+    {
+      "id": 26,
+      "mode": "hc",
+      "query": "<hc from=\"t7 review\">Two bugs in x.rs; the details are in findings.md next to it.</hc>",
+      "should_trigger": true,
+      "axis": "receiving an hc message",
+      "note": "A plain report from another hc terminal. Loading is needed to decide whether this closes a pending request and whether other branches are still out."
+    },
+    {
+      "id": 27,
+      "mode": "hc",
+      "query": "<hc>t9 build exited (exit 1). Read: hc read t9</hc>",
+      "should_trigger": true,
+      "axis": "receiving an hc message",
+      "note": "A note hc types into the parent about a child (measured format). Handling it means reading that child's screen and deciding about the work it carried."
+    },
+    {
+      "id": 28,
+      "mode": "hc",
+      "query": "Have two reviewers go over src/api and src/web in parallel, then give me one combined list of what actually needs fixing.",
+      "should_trigger": true,
+      "axis": "a request without the herdr name (hc mode)",
+      "note": "Delegation across two agents in hc mode. hc's manual covers launching; the branch count and not synthesizing before both replies are this skill's."
+    },
+    {
+      "id": 29,
+      "mode": "hc",
+      "query": "In this CSV of hockey stats, what does the hc column mean, and is it safe to drop it before the merge?",
+      "should_trigger": false,
+      "axis": "near-miss",
+      "note": "The letters hc appear and the environment is hc, but the request is about a data file, not terminals or agents."
     }
   ],
   "criterion": "In a herdr environment, a request about the screen, panes, or agents loads it; anything else does not. That is the only criterion, and the axes below divide up where it tends to waver."

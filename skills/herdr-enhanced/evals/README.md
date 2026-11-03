@@ -116,6 +116,20 @@ after the command succeeds, so you have to check the execution record for which 
 which options were attached, and what was verified before executing. The `assertions` are written
 against that record.
 
+### hc mode
+
+Entries carrying `"mode": "hc"` (trigger queries 24 to 29, behavioral scenarios 15 to 17) are for
+the herdr app's `hc` CLI. Run them inside a terminal started by `hc`, where `$HC_TERMINAL_ID` is set
+and the herdr TUI variables are not. Run the two groups separately; each fails in the other's
+environment, and that is correct behavior.
+
+**Use an isolated hc core**, as `hc_environment` in `evals.json` describes: its own `HC_SESSION`,
+scratch XDG paths, and the inherited `HC_TERMINAL_*` variables removed. `hc ls` lists every live
+terminal and `hc send` reaches any of them, so a subject in the default core can touch real work.
+Never stop or restart the default core.
+
+The baseline for hc mode is this skill hidden with only `hc --skill` available.
+
 ### The baseline
 
 Use **the state with only the official `herdr` skill loaded** as the baseline. The point is to see
