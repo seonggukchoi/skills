@@ -118,7 +118,7 @@ against that record.
 
 ### hc mode
 
-Entries carrying `"mode": "hc"` (trigger queries 24 to 29, behavioral scenarios 15 to 17) are for
+Entries carrying `"mode": "hc"` (trigger queries 24 to 29, behavioral scenarios 15 to 18) are for
 the herdr app's `hc` CLI. Run them inside a terminal started by `hc`, where `$HC_TERMINAL_ID` is set
 and the herdr TUI variables are not. Run the two groups separately; each fails in the other's
 environment, and that is correct behavior.
@@ -127,6 +127,61 @@ environment, and that is correct behavior.
 scratch XDG paths, and the inherited `HC_TERMINAL_*` variables removed. `hc ls` lists every live
 terminal and `hc send` reaches any of them, so a subject in the default core can touch real work.
 Never stop or restart the default core.
+
+**Isolate the core, not the agent.** Every terminal the core starts inherits the core's environment,
+not that of the `hc run` caller (measured), so a subject started plainly sees the scratch XDG paths.
+An agent and its plugins resolve their own data and config directories from those variables, and
+can write the scratch path back into the agent's real configuration, which the XDG variables do not
+move. Once the scratch directories are removed, the person's real setup points at nothing. So start
+the subject through a launcher that restores the XDG values from before the core started, and
+unsets the ones that were unset. Do not isolate the agent's own config directory instead: that cuts
+off its login, plugins, and installed skills, and the run no longer measures the real setup.
+
+The subject's own `hc` still reaches the isolated core, because the core puts `HC_TERMINAL_SOCKET`
+and `HC_SESSION` into each terminal it starts (measured).
+
+Build the wrapper and the launcher once, from the shell that runs the evaluation, before the core
+starts. The launcher also pins `PATH`, since the core passes on whatever `PATH` started it. And it
+unsets `CLAUDE_CODE_CHILD_SESSION`: a core started from inside a Claude Code session passes that
+marker on, and a subject that inherits it does not save its transcript (measured), which is the
+execution record grading reads.
+
+```sh
+eval_root=$(mktemp -d)
+mkdir -p "$eval_root/bin" "$eval_root/config" "$eval_root/data" "$eval_root/state" "$eval_root/cache"
+real_hc=$(command -v hc)
+
+# hc-eval: hc against the isolated core. The scratch XDG paths reach the core and nothing else.
+cat > "$eval_root/bin/hc-eval" <<EOF
+#!/bin/sh
+exec env -u HC_TERMINAL_ID -u HC_TERMINAL_SOCKET -u HC_SCOPE HC_SESSION=herdr-eval \\
+  XDG_CONFIG_HOME="$eval_root/config" XDG_DATA_HOME="$eval_root/data" \\
+  XDG_STATE_HOME="$eval_root/state" XDG_CACHE_HOME="$eval_root/cache" "$real_hc" "\$@"
+EOF
+
+# eval-agent: starts the subject with this shell's XDG values and PATH, not the core's,
+# and without a parent session's marker that turns off transcript saving.
+{
+  echo '#!/bin/sh'
+  for var_name in XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME PATH; do
+    if var_value=$(printenv "$var_name"); then
+      printf "export %s='%s'\n" "$var_name" "$(printf '%s' "$var_value" | sed "s/'/'\\\\''/g")"
+    else
+      printf 'unset %s\n' "$var_name"
+    fi
+  done
+  echo 'unset CLAUDE_CODE_CHILD_SESSION'
+  echo 'exec claude "$@"'
+} > "$eval_root/bin/eval-agent"
+chmod +x "$eval_root/bin/hc-eval" "$eval_root/bin/eval-agent"
+
+# Start the core before exporting, so the two paths stay out of the subjects' environment.
+"$eval_root/bin/hc-eval" server start
+export HC_EVAL_BIN="$eval_root/bin/hc-eval" HC_EVAL_AGENT="$eval_root/bin/eval-agent"
+```
+
+The scenarios' `setup_script` start every agent as `"$HC_EVAL_BIN" run ... "$HC_EVAL_AGENT"`. After
+the whole run, `"$HC_EVAL_BIN" server stop` and remove `$eval_root`.
 
 The baseline for hc mode is this skill hidden with only `hc --skill` available.
 
