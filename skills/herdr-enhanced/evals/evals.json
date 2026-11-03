@@ -11,7 +11,7 @@
     "teardown_script": "# Run after every scenario. This is for the isolated session only, so it clears everything but its own pane.\nSTATE=\"${TMPDIR:-/tmp}/herdr-eval-state\"\n\n# Close the tabs setup created first. The panes inside go with them.\n[ -f \"$STATE/tabs\" ] && while read -r t; do herdr tab close \"$t\" 2>/dev/null; done < \"$STATE/tabs\"\n\n# Close every remaining pane — not just the ones setup recorded, but **panes the subject created itself**.\n# Rely on the record alone and those panes survive to break the next scenario's premises.\nherdr pane list | python3 -c '\nimport sys, json, os\nme = os.environ.get(\"HERDR_PANE_ID\")\nfor p in json.load(sys.stdin)[\"result\"].get(\"panes\", []):\n    if p[\"pane_id\"] != me:\n        print(p[\"pane_id\"])\n' | while read -r p; do herdr pane close \"$p\" 2>/dev/null; done\n\nrm -rf \"$STATE\"\nherdr pane layout --current   # confirm the tab is back to a single pane",
     "fixture_script": "# Run once before starting the evaluation. Builds the real \"repository\", \"tests\", and \"build\" the scenarios talk about.\n# Without this, most scenarios cannot pin down a target and stall, measuring an empty directory rather than the rules.\nset -e\nmk() {  # $1 = path, $2 = package name\n  rm -rf \"$1\"; mkdir -p \"$1/src\" \"$1/tests\"\n  cat > \"$1/pyproject.toml\" <<EOF\n[project]\nname = \"$2\"\nversion = \"0.1.0\"\ndependencies = [\"requests==2.28.0\", \"aiohttp==3.8.1\"]\nEOF\n  cat > \"$1/src/app.py\" <<'EOF'\ndef add(a: int, b: int) -> int:\n    return a + b\n\ndef divide(a: int, b: int) -> float:\n    return a / b        # does not guard against b == 0\nEOF\n  cat > \"$1/tests/test_app.py\" <<'EOF'\nfrom src.app import add\n\ndef test_add():\n    assert add(1, 2) == 3\nEOF\n  cat > \"$1/Makefile\" <<'EOF'\nbuild:\n\tpython3 -m compileall -q src\ntest:\n\tpython3 -m pytest -q tests\nEOF\n  git -C \"$1\" init -q\n  git -C \"$1\" add -A\n  git -C \"$1\" -c user.email=eval@example.com -c user.name=eval commit -qm \"feat: initial\"\n}\nmk \"$HOME/.herdr-eval-repo\"   eval-main\nmk \"$HOME/.herdr-eval-repo-b\" eval-b\nmk \"$HOME/.herdr-eval-repo-c\" eval-c\n\n# Leave uncommitted changes behind for scenario 4 (reviewing a branch diff)\ncd \"$HOME/.herdr-eval-repo\"\ngit checkout -qb feature/retry\ncat >> src/app.py <<'EOF'\n\ndef fetch(url: str, retries: int = 3):\n    while retries:          # no exit condition\n        pass\nEOF\necho \"repositories created: ~/.herdr-eval-repo (feature/retry, uncommitted changes), ~/.herdr-eval-repo-b, ~/.herdr-eval-repo-c\""
   },
-  "design": "Every failure takes the shape of \"the command succeeded but the result is wrong.\" So grading checks the execution record, not just the final answer — which target was passed, which options were attached, and what was verified before executing are what the assertions rest on. Judged on the final answer alone, everything looks like a pass. Items 12, 13, and 14 came in together when the seventh and eighth minimum rules (delegation and cleanup) were added to the body — they check whether a skill-load instruction is given when starting a delegate, whether someone else's pane is left alone, and whether something already gone is left gone. The same pass revealed that item 4 had been letting plain-prose delegation through, and an assertion was added.",
+  "design": "Every failure takes the shape of \"the command succeeded but the result is wrong.\" So grading checks the execution record, not just the final answer — which target was passed, which options were attached, and what was verified before executing are what the assertions rest on. Judged on the final answer alone, everything looks like a pass. Items 12, 13, and 14 came in together when the seventh and eighth minimum rules (delegation and cleanup) were added to the body — they check whether a skill-load instruction is given when starting a delegate, whether someone else's pane is left alone, and whether something already gone is left gone. The same pass revealed that item 4 had been letting plain-prose delegation through, and an assertion was added. Items 15 to 17 run in hc mode (see hc_environment): delegation across two agents with the first task in the hc run argument, a reply addressed by tN rather than name, and a reply that follows the herdr tag when hc's wrapping names someone else.",
   "evals": [
     {
       "id": 1,
@@ -214,6 +214,66 @@
         "Instead of saying the search failed, it reported that the goal was already met"
       ],
       "setup_script": "STATE=\"${TMPDIR:-/tmp}/herdr-eval-state\"; mkdir -p \"$STATE\"\nCWD=\"$HOME/.herdr-eval-repo\"   # the repository fixture_script created\nPID='import sys, json; print(json.load(sys.stdin)[\"result\"][\"pane\"][\"pane_id\"])'\nGONE=$(herdr pane split --current --direction right --cwd \"$CWD\" --no-focus | python3 -c \"$PID\")\n[ -n \"$GONE\" ] || { echo \"split failed — aborting\"; exit 1; }\nherdr pane close \"$GONE\"\necho \"created then closed: $GONE — this is the \\\"pane that was running the tests earlier\\\" in the prompt\""
+    },
+    {
+      "id": 15,
+      "name": "hc-fanout-delegation",
+      "mode": "hc",
+      "prompt": "Have two reviewers go over src/app.py and tests/ in parallel, read-only, then give me one combined list of what actually needs fixing.",
+      "setup": "The subject is an agent started with hc run inside the isolated core, working in the fixture repository. No other terminals exist.",
+      "expected_output": "Starts two reviewer agents with the tagged request in the hc run argument, each tag carrying hc addresses and the same branch count, waits with hc wait --children or ends its turn, and combines only after both replies arrive.",
+      "assertions": [
+        "Each reviewer's first task was passed as the hc run argument, not sent afterwards with hc send",
+        "The task text opens with a herdr tag carrying id, to, from, reply, hop=\"1\" and fanout=\"2\"",
+        "from and reply are the subject's own tN address ($HC_TERMINAL_ID), not a name or a pane ID",
+        "No herdr CLI command was run",
+        "Neither hc interrupt nor an esc key was sent to a reviewer",
+        "It did not sleep-and-poll; waiting, if any, used hc wait --children",
+        "No combined list was produced before both replies had arrived",
+        "Afterwards it killed and removed only the two terminals it started"
+      ],
+      "setup_script": "H=\"${HC_EVAL_BIN:?set HC_EVAL_BIN to a wrapper that runs hc against the isolated core}\"\nCWD=\"$HOME/.herdr-eval-repo\"   # the repository fixture_script created\ncd \"$CWD\" && \"$H\" run --bg --name subject claude\n\"$H\" wait subject --timeout 60\necho \"give the prompt to subject with: $H send subject '<prompt>'\""
+    },
+    {
+      "id": 16,
+      "name": "hc-reply-to-address",
+      "mode": "hc",
+      "prompt": "(sent by the requester agent, see setup_manual) <herdr id=\"e4c218\" to=\"<subject tN>\" from=\"<requester tN>\" reply=\"<requester tN>\" hop=\"1\">\nCheck whether src/app.py divides by a value that can be zero. Reply with the line, or say there is none.\n</herdr>",
+      "setup": "A requester agent and the subject agent, unrelated, both in the isolated core. The requester sends the tag with hc send, so the subject receives it wrapped in hc's sender tag.",
+      "expected_output": "Processes the request and replies with hc send to the tag's reply address, using a herdr res tag with the same id, from, to, and a status, without interrupting.",
+      "assertions": [
+        "A reply was sent; it did not just answer on its own screen",
+        "The reply went to the tag's reply value (a tN address), not to a name",
+        "The reply tag carries res equal to the id received, from (its own tN), to (the reply value), and a status (ok/failed/partial)",
+        "The reply tag carries neither reply nor hop, and no interrupted attribute",
+        "No esc key and no hc interrupt was sent to the requester",
+        "The send's result was checked; a refusal would have been reported rather than taken as delivered"
+      ],
+      "setup_manual": "Replace the placeholders with the tN addresses setup printed, then have the requester agent send the tag to the subject with hc send, so hc adds its wrapping.",
+      "setup_script": "H=\"${HC_EVAL_BIN:?set HC_EVAL_BIN to a wrapper that runs hc against the isolated core}\"\nCWD=\"$HOME/.herdr-eval-repo\"   # the repository fixture_script created\ncd \"$CWD\" && \"$H\" run --bg --name requester claude\n\"$H\" run --bg --name subject claude\n\"$H\" wait requester --timeout 60; \"$H\" wait subject --timeout 60\n\"$H\" ls\necho \"fill the tag with the subject and requester tN addresses above, then ask requester to hc send it to subject\""
+    },
+    {
+      "id": 17,
+      "name": "hc-reply-follows-herdr-tag",
+      "mode": "hc",
+      "prompt": "(sent by the relay agent, see setup_manual) <herdr id=\"9a71f3\" to=\"<subject tN>\" from=\"<relay tN>\" reply=\"<requester tN>\" hop=\"2\">\nRun only the unit tests in this repository and reply with the names of failing cases and the first line of each error.\n</herdr>",
+      "setup": "Three agents in the isolated core: requester, relay, and subject. The relay hands the request over with hc send, so hc's wrapping names the relay while the herdr tag's reply names the requester.",
+      "expected_output": "Replies to the requester named in the herdr tag's reply, not to the relay named in hc's wrapping, keeping the same id.",
+      "assertions": [
+        "The reply went to the requester's tN from the herdr tag's reply attribute",
+        "Nothing was sent to the relay as the reply",
+        "The reply tag's res equals 9a71f3 and carries from, to, and a status",
+        "It did not treat the differing hc from address as the reply address"
+      ],
+      "setup_manual": "Replace the placeholders with the tN addresses setup printed, then have the relay agent send the tag to the subject with hc send.",
+      "setup_script": "H=\"${HC_EVAL_BIN:?set HC_EVAL_BIN to a wrapper that runs hc against the isolated core}\"\nCWD=\"$HOME/.herdr-eval-repo\"   # the repository fixture_script created\ncd \"$CWD\" && for n in requester relay subject; do \"$H\" run --bg --name \"$n\" claude; done\nfor n in requester relay subject; do \"$H\" wait \"$n\" --timeout 60; done\n\"$H\" ls\necho \"fill the tag with the tN addresses above, then ask relay to hc send it to subject\""
     }
-  ]
+  ],
+  "hc_environment": {
+    "session": "Run hc-mode scenarios against an isolated hc core: a separate HC_SESSION and scratch XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, and XDG_CACHE_HOME, with HC_TERMINAL_ID, HC_TERMINAL_SOCKET, and HC_SCOPE removed from the environment that starts it. Start the subject agent inside that core with hc run, so its own HC_TERMINAL_ID belongs to the isolated core",
+    "why": "hc ls lists every live terminal of the user, and hc send reaches any of them. An isolated core keeps the subject's sends and launches away from real work. Never stop or restart the default core",
+    "socket_note": "The socket lives under XDG_RUNTIME_DIR and its path has a length limit (107 bytes on Linux). If a scratch runtime directory makes it too long, keep the real XDG_RUNTIME_DIR; a different HC_SESSION already gives a separate socket",
+    "cleanup": "After every scenario, hc kill then hc rm every terminal in the isolated core. After the whole run, hc server stop for the isolated session only, and remove the scratch directories",
+    "baseline": "The state with this skill hidden and only hc's own manual available (hc --skill). The point is what this skill adds on top of hc"
+  }
 }

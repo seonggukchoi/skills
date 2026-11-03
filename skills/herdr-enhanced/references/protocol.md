@@ -8,6 +8,10 @@ Do not rebuild what herdr already solved. Text injection and submission are hand
 `agent prompt`, and the other side's state is recognized by herdr. **All that is defined here is the
 contract for the text exchanged.**
 
+**In hc mode (`$HC_TERMINAL_ID` set), read `hc.md` first.** The tag, every attribute, and every rule
+below hold there unchanged. Only the address values (hc's `tN` instead of pane IDs) and the commands
+that carry the text differ: the startup and interrupt procedures below have hc counterparts.
+
 ## The tag
 
 **The opening tag is the first line, the body follows, and the closing tag is the last line.** All
@@ -71,6 +75,8 @@ Carry **addresses only** in the tag. How to reply and what the status codes mean
 document. Hauling the same explanation along with every request only eats the receiver's context.
 
 ## A tag can only be sent with `agent prompt`
+
+In hc mode the same tagged request goes into the `hc run` argument instead; follow `hc.md`.
 
 **What makes something a delegation is what you sent, not which command you used.** If the recipient
 is an agent and the text you sent contains work to do, it is a delegation regardless of which
@@ -169,6 +175,8 @@ and named you as the reply address. Do not discard it as unfamiliar; use `from` 
 context.
 
 ## Replies go in by cutting the other side's turn
+
+In hc mode send the same reply with `hc send` without cutting the requester's turn; follow `hc.md`.
 
 Send a reply plainly while the requester is working and it queues, so the requester finishes that
 turn **knowing only the replies that arrived earlier** and reads yours afterwards. On a request

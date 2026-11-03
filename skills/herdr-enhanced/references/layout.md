@@ -7,6 +7,10 @@ fixing after.
 Settling the reference point first is covered in `targeting.md`. This file covers which direction,
 how many, and in what order to split.
 
+In hc mode (`$HC_TERMINAL_ID` set), follow `hc.md`: `hc` does not arrange windows, so the commands
+below do not apply, while the judgment (translate the direction, verify after acting, keep focus)
+still does.
+
 ## Translate what the person said into arguments
 
 People describe **the picture they want to see**, and the CLI takes **where the new pane goes.**
