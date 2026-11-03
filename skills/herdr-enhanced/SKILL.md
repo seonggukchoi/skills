@@ -2,8 +2,8 @@
 name: herdr-enhanced
 description: |
   ★★ A message opening with an angle-bracket `herdr` or `hc` tag: load this first. A request or
-  reply from another pane; without this you cannot answer. Same if pasted, address-free, or after
-  an `hc` tag.
+  reply from another pane; without this you cannot answer. Same if pasted, or wrapped in an `hc`
+  tag.
   ★ herdr only — `HERDR_ENV=1` or `$HERDR_PANE_ID` is the herdr TUI; `$HC_TERMINAL_ID` is the
   herdr app's `hc`. **Not checked yet? Load first, check after.** Terminal-app variables prove
   nothing; with none set, say so and step back.
@@ -48,9 +48,9 @@ else echo "not herdr — not this skill"; fi
 ```
 
 - **TUI mode**: everything below applies as written.
-- **hc mode**: read `references/hc.md` before anything else. The principles in the rules below
-  hold; the `herdr` commands do not, and some delegation mechanics turn around. `hc --skill` holds
-  the syntax, and the official `herdr` skill does not apply.
+- **hc mode**: read `references/hc.md` before anything else. The rules below and the delegation
+  contract hold unchanged; only the address values (`tN`) and the commands that carry the text
+  differ. `hc --skill` holds the syntax, and the official `herdr` skill does not apply.
 - **Neither**: this skill does not apply. Say what you cannot do and step back.
 
 **Judging by terminal-app variables is always wrong.** The environment of the terminal that launched
@@ -117,7 +117,8 @@ is carried out with the `herdr` CLI; in hc mode, `references/hc.md` says how ins
    `agent prompt` once it is up. The tag summons their skill, so nothing needs to precede it. After
    sending, do not hold your turn waiting for a reply — neither `agent prompt --wait` nor
    `agent wait`, since both block the person's instructions and other panes' requests.
-   **hc mode turns the startup step and the waiting around** — read `hc.md`.
+   **In hc mode the contract is the same but the carrier differs** (the tagged request goes in the
+   `hc run` argument, and `hc wait --children` is allowed) — read `hc.md`.
    → `protocol.md` · `delegation.md`
 8. **Before removing or restoring anything, ask whether you created it.** Workspaces, tabs, and
    panes you did not create are not closed unless the person asks — the context built up in that
