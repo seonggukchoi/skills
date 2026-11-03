@@ -39,6 +39,23 @@ Two places. A missing expiry check in the auth middleware, and the exit conditio
 **Reply only to the tag's `reply`**, as in the TUI. Handover, re-delegation, and `hop` work exactly as
 `protocol.md` describes.
 
+### A first request in the `hc run` argument leaves out `to`
+
+A new peer's first request rides in the `hc run` argument (below), and its `tN` does not exist until
+`hc run` returns. So **that one tag leaves `to` out.** Never fill it with a guessed `tN` or a name:
+a wrong `to` is worse than none, because the receiver passes it on when re-delegating. Every other
+tag, including later requests to the same peer with `hc send`, carries `to` as usual.
+
+```
+<herdr id="r7f3a2" from="t4" reply="t4" hop="1" fanout="3">
+Review the changes in the current working tree and tell me only what actually needs fixing.
+</herdr>
+```
+
+**When a tag you receive has no `to`, read it as your own `$HC_TERMINAL_ID`.** `to` always means
+the reader's own address, so the reader can always supply it. Use that value wherever `protocol.md`
+uses `to`. It changes nothing about replying: the reply still goes to `reply` and to nothing else.
+
 ## The `<hc>` tag is wrapping, not an address
 
 When an agent sends text with `hc send`, hc wraps it: the receiver sees
@@ -73,7 +90,7 @@ Each row keeps what the TUI rule protects; only the means of carrying it changes
 
 | What the contract requires | TUI carrier | hc carrier | Why hc differs |
 |---|---|---|---|
-| **A new peer's first work arrives as a tagged request**, never as an untagged line of work | Start with nothing in the `agent start` arguments, then send the tag with `agent prompt` | **Put the tagged request in the `hc run` argument** | hc's manual says a send to a booting agent can be dropped. The argument reaches the agent intact, angle brackets and newlines included (measured), so the tag fits. Only a template launch reports whether the first message was sent; without a template the response carries no such field, so read the screen if you are unsure, and do not resend blindly |
+| **A new peer's first work arrives as a tagged request**, never as an untagged line of work | Start with nothing in the `agent start` arguments, then send the tag with `agent prompt` | **Put the tagged request in the `hc run` argument**, without `to` (see Addresses) | hc's manual says a send to a booting agent can be dropped. The argument reaches the agent intact, angle brackets and newlines included (measured), so the tag fits. Only a template launch reports whether the first message was sent; without a template the response carries no such field, so read the screen if you are unsure, and do not resend blindly |
 | **Waiting for replies must not shut out a person or other requests** | End the turn; no `agent prompt --wait`, no `agent wait` | **End the turn, or `hc wait --children`** when the next step needs the replies | `hc wait` returns when a message reaches you, so nobody is shut out. A timeout is a check-in, not a failure. Never sleep-and-poll |
 | **A reply must reach a requester who is busy** | Cut the requester's turn with `esc`, then `agent prompt`, marking `interrupted` | **`hc send` the reply**; no `esc`, no `hc interrupt`, no `interrupted` attribute | Measured with Claude Code: a message sent while it was `working` was queued and fed into the running turn at the next tool-call boundary. Other agents were not measured |
 | **A peer meant to stay outlives the work that started it** | Panes stay until closed | **Start it with `--outlive-parent`** | Without it a child ends when its parent's program ends (measured). With it, the child still sends notes to the parent while the parent lives, and keeps the ended parent's address afterwards; sends to that address are refused as `finished` (measured) |

@@ -49,7 +49,7 @@ alone, or describe it in words.** Written verbatim, that line reads as the end o
 | Attribute | Meaning |
 |---|---|
 | `id` | The thread tying request to reply. Copy the same value into `res` when replying |
-| `to` | The recipient. **That is, your own address as the reader of this tag.** Use this value when re-delegating or naming a reply address for a third party |
+| `to` | The recipient. **That is, your own address as the reader of this tag.** Use this value when re-delegating or naming a reply address for a third party. In hc mode a first request sent as the `hc run` argument has none; read it as your own address (`hc.md`) |
 | `from` | The sender |
 | `reply` | **Where to send the reply.** Usually the same as `from`, but a third party when the work was handed over. Reply to this value, not to `from` |
 | `hop` | Depth in the delegation chain. Add one to the value received when passing a request on. **Above 3, do not pass it on** |

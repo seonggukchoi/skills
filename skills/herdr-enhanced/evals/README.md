@@ -118,7 +118,7 @@ against that record.
 
 ### hc mode
 
-Entries carrying `"mode": "hc"` (trigger queries 24 to 29, behavioral scenarios 15 to 17) are for
+Entries carrying `"mode": "hc"` (trigger queries 24 to 29, behavioral scenarios 15 to 18) are for
 the herdr app's `hc` CLI. Run them inside a terminal started by `hc`, where `$HC_TERMINAL_ID` is set
 and the herdr TUI variables are not. Run the two groups separately; each fails in the other's
 environment, and that is correct behavior.
