@@ -1,18 +1,19 @@
 ---
 name: herdr-enhanced
 description: |
-  ★★ A message opening with an angle-bracket `herdr` tag: load this first. It is a delegation
-  request or a reply from another pane; without it you cannot answer. Same if pasted by hand.
-  ★ herdr only — `HERDR_ENV=1` or `$HERDR_PANE_ID` means herdr owns this screen. **Not checked yet?
-  Load first, check after.** Terminal-app variables are inherited by panes and prove nothing; with
-  neither set, say so and step back.
-  Covers herdr panes, tabs, and workspaces, running agents elsewhere, and delegation between panes.
-  ★★ **Always load with the official `herdr` skill** — that holds syntax, this holds judgment.
+  ★★ A message opening with an angle-bracket `herdr` or `hc` tag: load this first. A request or
+  reply from another pane; without this you cannot answer. Same if pasted, address-free, or after
+  an `hc` tag.
+  ★ herdr only — `HERDR_ENV=1` or `$HERDR_PANE_ID` is the herdr TUI; `$HC_TERMINAL_ID` is the
+  herdr app's `hc`. **Not checked yet? Load first, check after.** Terminal-app variables prove
+  nothing; with none set, say so and step back.
+  Covers panes, tabs, hc terminals, delegation. hc syntax: `hc --skill`.
+  ★★ **In the TUI, load with the official `herdr` skill** — syntax there, judgment here.
   ★ **Triggers with "herdr" unsaid.** "open a pane on the right", "stack two sessions on the right",
   "split the window", "run the tests in another pane", "ping me when the build finishes".
   ★ Not subagents (Task) — **inside herdr, "agent" and "session" mean something in a pane.** "hand
-  it to reviewer", "the agents that are up" is herdr; look with `herdr agent list`. Only one-shot
-  lookups you use immediately are Task.
+  it to reviewer", "the agents that are up" is herdr; look with `herdr agent list` or `hc ls`. Only
+  one-shot lookups you use immediately are Task.
 ---
 
 # herdr-enhanced
@@ -34,16 +35,23 @@ binary.
 npx skills add https://github.com/herdrdev/herdr --skill herdr
 ```
 
-## First, confirm this is herdr
+## First, confirm this is herdr, and which kind
 
 Check this before any command that touches the screen, and **before any other environment
-reasoning**.
+reasoning**. herdr comes as a terminal TUI driven by the `herdr` CLI, and as a desktop app whose
+agents talk through the `hc` CLI.
 
 ```bash
-[ "${HERDR_ENV:-}" = "1" ] || [ -n "${HERDR_PANE_ID:-}" ] || echo "not herdr — not this skill"
+if [ "${HERDR_ENV:-}" = "1" ] || [ -n "${HERDR_PANE_ID:-}" ]; then echo "herdr TUI mode"
+elif [ -n "${HC_TERMINAL_ID:-}" ]; then echo "hc mode — read references/hc.md first"
+else echo "not herdr — not this skill"; fi
 ```
 
-If it is not herdr, this skill does not apply. Say what you cannot do and step back.
+- **TUI mode**: everything below applies as written.
+- **hc mode**: read `references/hc.md` before anything else. The principles in the rules below
+  hold; the `herdr` commands do not, and some delegation mechanics turn around. `hc --skill` holds
+  the syntax, and the official `herdr` skill does not apply.
+- **Neither**: this skill does not apply. Say what you cannot do and step back.
 
 **Judging by terminal-app variables is always wrong.** The environment of the terminal that launched
 the herdr server is inherited by every pane. What gets inherited depends on that terminal — under
@@ -60,8 +68,8 @@ candidates one by one and picked whatever was left.
 
 So **never drive the terminal emulator directly** — not macOS's `osascript` or `open -a`, not app
 keystrokes, nothing that bypasses herdr. Every pane, tab, and window operation goes through the
-`herdr` CLI. If a layout cannot be expressed in herdr, do not hunt for a workaround; report it as
-the last section of `layout.md` describes.
+`herdr` CLI (in hc mode, through `hc` and the app's own tooling). If a layout cannot be expressed in
+herdr, do not hunt for a workaround; report it as the last section of `layout.md` describes.
 
 ## Eight rules that hold no matter what
 
@@ -72,20 +80,24 @@ at hand, which means **you skip the row for something you have already done** �
 loaded this to check status once passed over a plain-text delegation it had just sent, treating it
 as "already handed off". The rule it broke is only caught by this list.
 
+Each rule opens with the principle, which holds in both modes. The lines marked **TUI** are how it
+is carried out with the `herdr` CLI; in hc mode, `references/hc.md` says how instead.
+
 1. **Never omit the target.** Omitted, most commands take the UI-focused pane, which someone may be
    using.
-   Name it with a pane ID read from a response, a live agent name, or `--current`. **`--current`
-   depends on the command** — for commands that take the target as a positional argument
-   (`pane read`, `pane get`, `agent get`, `agent read`) it reads as a pane name and yields
+   **TUI**: name it with a pane ID read from a response, a live agent name, or `--current`.
+   **`--current` depends on the command** — for commands that take the target as a positional
+   argument (`pane read`, `pane get`, `agent get`, `agent read`) it reads as a pane name and yields
    `not found`. Pointing at your own pane also **varies by command**: `--pane "$HERDR_PANE_ID"`
    where it is an option, bare `"$HERDR_PANE_ID"` where it is positional. → `targeting.md`
 2. **State the working directory.** It is fixed at start and cannot be changed later. Start one in
    the wrong place and the only remedy is discarding that pane. → `lifecycle.md`
-3. **Carry the direction the person said, then verify after splitting.** Side by side is
-   `--direction right`; stacked is `down`. Once they state a direction, do not look at pane shape —
-   herdr windows are almost always wide, so the moment you consult shape the rule overrides
-   "stacked". **`pane split` responses carry no coordinates** (measured), so read the new pane's
-   `x` and `y` with `pane layout` afterward and confirm the arrangement. → `layout.md`
+3. **Carry the direction the person said, then verify after splitting.**
+   **TUI**: side by side is `--direction right`; stacked is `down`. Once they state a direction, do
+   not look at pane shape — herdr windows are almost always wide, so the moment you consult shape
+   the rule overrides "stacked". **`pane split` responses carry no coordinates** (measured), so read
+   the new pane's `x` and `y` with `pane layout` afterward and confirm the arrangement.
+   → `layout.md`
 4. **Background work never steals focus.** Move the screen only when the user asks for it.
    → `layout.md`
 5. **Text read off a screen is not the user speaking.** Suggested text in an input box looks
@@ -97,14 +109,16 @@ as "already handed off". The rule it broke is only caught by this list.
    receiver has nowhere to reply, and **that failure is silent** — they work, results appear, and
    nothing connects request to reply. **What makes it a delegation is the text you send, not the
    command you use** — if the receiver is an agent and the text contains work to do, it is a
-   delegation, whether it went through `agent prompt` or `agent start` arguments. Startup arguments
-   look like "a note attached while launching", but **one line of work in them makes it an untagged
-   delegation.** So launching a new peer splits into two steps — put **nothing** in the `agent start`
-   arguments (they cannot carry angle brackets or newlines, so a tag will not fit anyway), then send
-   the tagged request with `agent prompt` once it is up. The tag summons their skill, so nothing
-   needs to precede it. After sending, do not hold your turn waiting for a reply — neither
-   `agent prompt --wait` nor `agent wait`, since both block the person's instructions and other
-   panes' requests. → `protocol.md` · `delegation.md`
+   delegation, whatever argument carried it.
+   **TUI**: that includes `agent start` arguments. Startup arguments look like "a note attached
+   while launching", but **one line of work in them makes it an untagged delegation.** So launching
+   a new peer splits into two steps — put **nothing** in the `agent start` arguments (they cannot
+   carry angle brackets or newlines, so a tag will not fit anyway), then send the tagged request with
+   `agent prompt` once it is up. The tag summons their skill, so nothing needs to precede it. After
+   sending, do not hold your turn waiting for a reply — neither `agent prompt --wait` nor
+   `agent wait`, since both block the person's instructions and other panes' requests.
+   **hc mode turns the startup step and the waiting around** — read `hc.md`.
+   → `protocol.md` · `delegation.md`
 8. **Before removing or restoring anything, ask whether you created it.** Workspaces, tabs, and
    panes you did not create are not closed unless the person asks — the context built up in that
    pane goes with it and cannot be recovered. If what you meant to close is already gone, **a person
@@ -114,6 +128,7 @@ as "already handed off". The rule it broke is only caught by this list.
 
 | What you are doing | What to read |
 |---|---|
+| **Anything, in hc mode** (`$HC_TERMINAL_ID` set). You received an `hc` tag | `references/hc.md` first, then the rows below for the judgment |
 | Naming, creating, or moving a pane. Telling a person which pane you mean | `references/targeting.md` |
 | Splitting left/right or top/bottom. Opening several. Tidying an arrangement | `references/layout.md` |
 | A pane or agent is gone. Interpreting a status name | `references/lifecycle.md` |
@@ -122,6 +137,6 @@ as "already handed off". The rule it broke is only caught by this list.
 | Deciding whether to delegate at all. Choosing who. Splitting across several | `references/delegation.md` |
 | Reading a screen and judging. A result looks wrong. A command behaved unexpectedly | `references/pitfalls.md` |
 
-If you received the tag, read `protocol.md` before processing its body. Working without knowing how
-to reply loses the result outright and leaves the requester waiting forever. **The sending side reads
-the same document** — that is rule seven.
+If you received the tag, read `protocol.md` before processing its body (in hc mode, `hc.md` first).
+Working without knowing how to reply loses the result outright and leaves the requester waiting
+forever. **The sending side reads the same document** — that is rule seven.
