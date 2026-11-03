@@ -141,7 +141,10 @@ The subject's own `hc` still reaches the isolated core, because the core puts `H
 and `HC_SESSION` into each terminal it starts (measured).
 
 Build the wrapper and the launcher once, from the shell that runs the evaluation, before the core
-starts. The launcher also pins `PATH`, since the core passes on whatever `PATH` started it.
+starts. The launcher also pins `PATH`, since the core passes on whatever `PATH` started it. And it
+unsets `CLAUDE_CODE_CHILD_SESSION`: a core started from inside a Claude Code session passes that
+marker on, and a subject that inherits it does not save its transcript (measured), which is the
+execution record grading reads.
 
 ```sh
 eval_root=$(mktemp -d)
@@ -156,7 +159,8 @@ exec env -u HC_TERMINAL_ID -u HC_TERMINAL_SOCKET -u HC_SCOPE HC_SESSION=herdr-ev
   XDG_STATE_HOME="$eval_root/state" XDG_CACHE_HOME="$eval_root/cache" "$real_hc" "\$@"
 EOF
 
-# eval-agent: starts the subject with this shell's XDG values and PATH, not the core's.
+# eval-agent: starts the subject with this shell's XDG values and PATH, not the core's,
+# and without a parent session's marker that turns off transcript saving.
 {
   echo '#!/bin/sh'
   for var_name in XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_CACHE_HOME PATH; do
@@ -166,6 +170,7 @@ EOF
       printf 'unset %s\n' "$var_name"
     fi
   done
+  echo 'unset CLAUDE_CODE_CHILD_SESSION'
   echo 'exec claude "$@"'
 } > "$eval_root/bin/eval-agent"
 chmod +x "$eval_root/bin/hc-eval" "$eval_root/bin/eval-agent"
