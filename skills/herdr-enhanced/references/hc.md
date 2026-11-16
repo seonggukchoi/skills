@@ -107,9 +107,63 @@ Two TUI rules hold as written:
   what the screen shows.
 - **Clean up only what you started** (rule 8): `hc kill` then `hc rm`, on terminals you launched.
 
-## What hc does not cover
+## Splitting and placing: the app, or tab labels
 
-hc runs terminals; it does not arrange windows. Requests about splitting or placing panes on screen
-belong to the app's own tooling (hc's manual points to it). The judgment in `layout.md` (translate
-the direction the person said, verify after acting, never steal focus) applies to whatever tool does
-the arranging.
+hc runs terminals; it does not arrange windows. **Where the app's window is reachable, splitting and
+placing panes belong to the app's own tooling** (hc's manual points to it; `herdr-app do pane.split`
+is the split). That is also the only way to choose a direction. The judgment in `layout.md`
+(translate the direction the person said, verify after acting, never steal focus) applies to
+whatever tool does the arranging.
+
+### No app window on this machine: join the tab with labels
+
+A session on a remote machine often cannot reach the app at all: the app's own tooling fails with no
+Herdr window to connect to, and that machine's `hc machine ls` does not list the machine running the
+app. That is no reason to answer a "split inside this tab" request with a subagent, or to report
+that splitting is impossible.
+
+The app's documentation (`herdr-app --skill`, "The model: spaces, tabs, terminals") says the app
+tags the terminals it starts with `herdr.space=<id>` and `herdr.tab=<id>`, and that **a terminal
+carrying those labels appears in that tab, even if you started it yourself.** The IDs are those of
+the machine the terminal runs on: drop the `<machine>/` prefix the app shows for remote IDs. An ID
+the app does not know becomes a new space or tab, and a terminal without the labels does not appear
+in the app at all.
+
+So, on a machine without the app's window:
+
+1. Read your own labels: `hc get "$HC_TERMINAL_ID" --json` and its `labels` object.
+2. Start the new terminal with both values copied, and `--keep`:
+
+   ```bash
+   hc run --bg --keep --label herdr.space=<space id> --label herdr.tab=<tab id> <program>
+   ```
+
+   `--bg` returns at once instead of waiting for the program to end. For an agent, the tagged
+   request goes in the argument as usual (Same contract, different carrier).
+
+What each label set produced, compared on a remote machine with `hc get` (measured):
+
+| Child started with | Where it appeared |
+|---|---|
+| The parent's `herdr.space` and `herdr.tab`, plus `--keep` | A split pane in the parent's tab |
+| `herdr.space` only | A new tab in the same space |
+| No labels | No tab at all; it exists only as a child terminal |
+
+The parent in the successful case was started by the app, so it carried both labels from the start.
+**A terminal started by the app can still lack `herdr.tab`** (measured on a local machine). Then the
+labels alone do not tell you the tab. Where the app is reachable, find the tab holding your terminal
+in `herdr-app ls`. Where it is not, tell the person the terminal will open as a new tab, and ask
+before starting it.
+
+Limits of this route:
+
+- **No direction.** The app's documentation gives no way to choose right or below. If the person
+  named a direction, say it cannot be guaranteed this way. Observed, not documented: a labeled
+  terminal attaches at the end of the tab's outermost split, and a tab with one pane splits in half
+  to the right.
+- **It is still your child.** The labels place it on screen; hc's parent and child relationship
+  stays. A terminal meant to stay after you end needs `--outlive-parent` as well (Same contract,
+  different carrier).
+- **Verify after starting** (rule 3): read the new terminal back with `hc get` and confirm both
+  labels and `keep`. When you cannot see the screen, tell the person where it should appear and
+  let them confirm.
