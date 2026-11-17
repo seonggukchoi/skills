@@ -299,7 +299,7 @@
         "It did not drive the terminal emulator or any tool outside hc, the app's tooling and the script"
       ],
       "setup_script": "H=\"${HC_EVAL_BIN:?set HC_EVAL_BIN to a wrapper that runs hc against the isolated core}\"\nA=\"${HC_EVAL_AGENT:?set HC_EVAL_AGENT to a launcher that restores the XDG variables, then runs claude}\"\nCWD=\"$HOME/.herdr-eval-repo\"   # the repository fixture_script created\nif herdr-app status >/dev/null 2>&1; then echo \"a Herdr app is reachable here; hc-layout would take the app route and touch the real screen — aborting\"; exit 1; fi\ncd \"$CWD\" && \"$H\" run --bg --keep --label herdr.space=sp-eval --label herdr.tab=tb-eval --name subject \"$A\"\n\"$H\" wait subject --timeout 60\necho \"seed the isolated core's layout document as setup_manual describes, then give the prompt to subject with: $H send subject '<prompt>'\"",
-      "setup_manual": "Not run yet. Seeding the layout document needs a doc.set on the isolated core with the shape hc-layout's check_shape accepts (spaces -> tabs -> a row root whose id is the tab id -> one block whose content.terminal is the subject's id); how hc treats a first write to a missing document was not measured. Confirm `herdr-app status` fails from the subject's environment before giving the prompt."
+      "setup_manual": "Not run yet. Seeding the layout document needs a doc.set on the isolated core with the shape check_shape in scripts/app/hc_layout/doc.py accepts (spaces -> tabs -> a row root whose id is the tab id -> one block whose content.terminal is the subject's id); how hc treats a first write to a missing document was not measured. Confirm `herdr-app status` fails from the subject's environment before giving the prompt."
     }
   ],
   "hc_environment": {
