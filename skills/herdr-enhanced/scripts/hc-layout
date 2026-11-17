@@ -1,0 +1,837 @@
+#!/usr/bin/env python3
+"""hc-layout: arrange panes in Herdr without stealing focus, from any machine.
+
+Two routes, chosen automatically:
+  app  The Herdr app is reachable here (`herdr-app status` works): every change goes
+       through its public commands (`herdr-app do`, `hc label`). The layout document is
+       only read, to see the split tree.
+  doc  No Herdr app here (a remote machine over ssh): the change is written to that
+       machine's layout document with `doc.set`, guarded by a version check, after the
+       document's shape is checked. Every Herdr client (desktop, mobile) draws from
+       that document, so the result shows the same everywhere.
+Force one with --via app|doc.
+
+Commands
+  tree  [WHAT...] [--on M] [--json]        split trees (WHAT: space/tab/terminal id or name)
+  where TERMINAL [--on M]                  the space, tab and pane holding a terminal
+  open  --anchor X --direction D [--cwd DIR] [-- CMD...]
+  open  --new-tab-in SPACE [--name N] [--cwd DIR] [-- CMD...]
+                                           start a terminal (default: the machine's shell)
+                                           beside pane X, or as a new tab
+  place TERMINAL --anchor X --direction right|down|left|up [--ratio A:B]
+                                           put a running terminal (background, or in another
+                                           pane) beside X; --ratio is anchor:terminal
+  resize TARGET --ratio A:B[:C...]         TARGET and its siblings, in tree order
+                                           (TARGET: pane id, terminal, or group id from `tree`)
+  move-tab TAB --to-space SPACE [--index N]
+                                           move a tab, with its tree and sizes, to another
+                                           space on the same machine
+  adopt TERMINAL --tab-of T | --tab TAB    add a running terminal at the end of a tab
+
+Ids: the app shows another machine's ids as `machine/id`; both forms are accepted.
+A terminal belongs to its machine: nothing here moves one across machines.
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+import uuid
+
+PLACEHOLDER = ["sh", "-c", "while :; do sleep 3600; done"]
+WAIT_SECONDS = 20
+DOC = "herdr-app"
+NODE_TYPES = {"row", "column", "block"}
+
+
+class Fail(Exception):
+    pass
+
+
+# ================================================================ plumbing
+
+def sh(args, check=True):
+    p = subprocess.run(args, capture_output=True, text=True)
+    if check and p.returncode != 0:
+        raise Fail(f"{' '.join(args[:3])} failed: {(p.stderr or p.stdout).strip()}")
+    return p
+
+
+def sh_json(args):
+    out = sh(args).stdout.strip()
+    try:
+        return json.loads(out) if out else None
+    except json.JSONDecodeError:
+        raise Fail(f"{' '.join(args[:3])}: not JSON: {out[:200]}")
+
+
+def app(command, **kw):
+    args = {k: v for k, v in kw.items() if v is not None}
+    return sh_json(["herdr-app", "do", command, json.dumps(args)])
+
+
+def app_available():
+    try:
+        p = subprocess.run(["herdr-app", "status"], capture_output=True, text=True, timeout=10)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    return p.returncode == 0 and p.stdout.strip().startswith("{")
+
+
+def route(a):
+    if a.via == "app" and not app_available():
+        raise Fail("--via app: `herdr-app status` cannot reach a Herdr app here")
+    if a.via:
+        return a.via
+    return "app" if app_available() else "doc"
+
+
+def split_id(ident):
+    """`machine/id` -> (machine, id); bare id -> (None, id)."""
+    if ident and "/" in ident:
+        m, i = ident.split("/", 1)
+        return m, i
+    return None, ident
+
+
+def qualify(machine, ident):
+    return f"{machine}/{ident}" if machine else ident
+
+
+def one_machine(*idents, on=None):
+    machines = {m for m, _ in map(split_id, [i for i in idents if i])} - {None}
+    if on:
+        machines.add(on)
+    if len(machines) > 1:
+        raise Fail("a terminal belongs to its machine; these ids are on different machines: "
+                   + ", ".join(sorted(machines)))
+    return machines.pop() if machines else None
+
+
+def rpc(method, params):
+    req = (json.dumps({"jsonrpc": "2.0", "id": 1, "method": "hello", "params": {}}) + "\n"
+           + json.dumps({"jsonrpc": "2.0", "id": 2, "method": method, "params": params}) + "\n")
+    p = subprocess.Popen(["hc", "connect"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE, text=True)
+    try:
+        p.stdin.write(req)
+        p.stdin.flush()
+        for line in p.stdout:
+            msg = json.loads(line)
+            if msg.get("id") == 2:
+                return msg
+        raise Fail(f"{method}: no answer from hc connect")
+    finally:
+        p.kill()
+
+
+def doc_read(machine=None):
+    params = {"name": DOC}
+    if machine:
+        params["on"] = machine
+    msg = rpc("doc.get", params)
+    if "error" in msg:
+        raise Fail(f"doc.get{' on ' + machine if machine else ''}: {msg['error'].get('message')}")
+    value = msg["result"].get("value")
+    check_shape(value)
+    return value, msg["result"]["version"]
+
+
+def doc_get(machine=None):
+    return doc_read(machine)[0]
+
+
+def check_shape(value):
+    """Refuse to touch a document that is not shaped the way this script was measured on."""
+    def bad(why):
+        raise Fail("the layout document has a shape this script does not know (" + why + "); "
+                   "this Herdr version may store layouts differently, so nothing was changed")
+    if not isinstance(value, dict) or not isinstance(value.get("spaces"), list):
+        bad("no spaces list")
+    for sp in value["spaces"]:
+        if not isinstance(sp, dict) or not isinstance(sp.get("id"), str) \
+                or not isinstance(sp.get("tabs"), list):
+            bad("a space without id or tabs")
+        for tb in sp["tabs"]:
+            if not isinstance(tb, dict) or not isinstance(tb.get("id"), str) \
+                    or not isinstance(tb.get("root"), dict):
+                bad("a tab without id or root")
+            for node, *_ in walk(tb["root"]):
+                if node.get("type") not in NODE_TYPES or not isinstance(node.get("id"), str):
+                    bad(f"a node of type {node.get('type')!r}")
+                if node["type"] == "block" and not isinstance(node.get("content"), dict):
+                    bad("a block without content")
+                if node["type"] != "block" and not isinstance(node.get("children"), list):
+                    bad("a split without children")
+                size = node.get("size")
+                if size is not None and not (isinstance(size, dict) and set(size) <= {"weight", "px"}):
+                    bad("an unknown size")
+
+
+def doc_change(machine, mutate):
+    """Read, change, write with the version read; retry when another client wrote first."""
+    for _ in range(6):
+        value, version = doc_read(machine)
+        result = mutate(value)
+        check_shape(value)
+        params = {"name": DOC, "value": value, "version": version}
+        if machine:
+            params["on"] = machine
+        msg = rpc("doc.set", params)
+        if "error" not in msg:
+            return result
+        if (msg["error"].get("data") or {}).get("kind") != "conflict":
+            raise Fail(f"doc.set: {msg['error'].get('message')}")
+        time.sleep(0.2)
+    raise Fail("doc.set: the layout kept changing under us; nothing was changed")
+
+
+# ================================================================ the tree
+
+def walk(node, parent=None, index=0, depth=0):
+    yield node, parent, index, depth
+    for i, child in enumerate(node.get("children") or []):
+        yield from walk(child, node, i, depth + 1)
+
+
+def terminal_of(node):
+    return (node.get("content") or {}).get("terminal") if node.get("type") == "block" else None
+
+
+def terminals_under(node):
+    return [terminal_of(n) for n, *_ in walk(node) if terminal_of(n)]
+
+
+def weight(node):
+    return (node.get("size") or {}).get("weight")
+
+
+def tabs(doc):
+    for sp in doc["spaces"]:
+        for tb in sp["tabs"]:
+            yield sp, tb
+
+
+def locate(doc, ident):
+    """A node (pane, group, tab root) or a terminal -> dict, or None."""
+    for sp, tb in tabs(doc):
+        for node, parent, index, _ in walk(tb["root"]):
+            if node.get("id") == ident or terminal_of(node) == ident:
+                return {"space": sp, "tab": tb, "node": node, "parent": parent, "index": index}
+    return None
+
+
+def find_tab(doc, ident):
+    for sp, tb in tabs(doc):
+        if ident in (tb["id"], tb.get("name")):
+            return sp, tb
+    hit = locate(doc, ident)
+    return (hit["space"], hit["tab"]) if hit else (None, None)
+
+
+def find_space(doc, ident):
+    for sp in doc["spaces"]:
+        if ident in (sp["id"], sp.get("name")):
+            return sp
+    hit = locate(doc, ident)
+    return hit["space"] if hit else None
+
+
+def new_id(prefix):
+    return prefix + uuid.uuid4().hex
+
+
+def describe(node):
+    t = terminal_of(node)
+    if t:
+        return t
+    if node["type"] == "block":
+        return f"mod:{(node.get('content') or {}).get('mod')}"
+    return f"{node['type']}[{', '.join(terminals_under(node))}]"
+
+
+def show_tree(node, machine, out, depth=1):
+    pad = "  " * depth
+    w = weight(node)
+    ws = f" weight={w:g}" if isinstance(w, (int, float)) else ""
+    if node["type"] == "block":
+        content = node.get("content") or {}
+        label = content.get("terminal") or f"mod:{content.get('mod')}"
+        out.append(f"{pad}pane {qualify(machine, node['id'])} [{label}]{ws}")
+    else:
+        word = {"row": "row (side by side)", "column": "column (stacked)"}[node["type"]]
+        out.append(f"{pad}{word} {qualify(machine, node['id'])}{ws}")
+        for child in node["children"]:
+            show_tree(child, machine, out, depth + 1)
+
+
+# ---------------------------------------------------------------- tree edits (doc route)
+# They follow what the app itself writes (measured): splitting a pane in its parent's
+# direction inserts beside it and halves its weight; splitting across wraps it in a new
+# group that takes its size; closing gives the weight back to a neighbour and unwraps a
+# group left with one child.
+
+def detach(doc, node_id):
+    """Take a block out of its tab. Returns the space/tab it left (they may be gone)."""
+    hit = locate(doc, node_id)
+    if not hit:
+        return None
+    sp, tb, node, parent, i = hit["space"], hit["tab"], hit["node"], hit["parent"], hit["index"]
+    kids = parent["children"]
+    kids.pop(i)
+    w = weight(node)
+    if w is not None and kids:
+        heir = kids[i - 1] if i > 0 else kids[0]
+        if weight(heir) is not None:
+            heir["size"] = {"weight": weight(heir) + w}
+    if parent is tb["root"]:
+        if not kids:
+            sp["tabs"].remove(tb)
+            if not sp["tabs"]:
+                doc["spaces"].remove(sp)
+        return sp, tb
+    if len(kids) == 1:
+        grand = locate(doc, parent["id"])
+        only = kids[0]
+        if "size" in parent:
+            only["size"] = parent["size"]
+        else:
+            only.pop("size", None)
+        grand["parent"]["children"][grand["index"]] = only
+    return sp, tb
+
+
+def insert_beside(doc, anchor_id, block, direction):
+    hit = locate(doc, anchor_id)
+    if not hit:
+        raise Fail(f"{anchor_id} is not in any tab")
+    anchor, parent, i = hit["node"], hit["parent"], hit["index"]
+    if parent is None:
+        raise Fail("anchor is a tab's outermost split; give a pane")
+    want = "row" if direction in ("right", "left") else "column"
+    after = direction in ("right", "down")
+    if parent["type"] == want:
+        w = weight(anchor)
+        if w is not None:
+            anchor["size"] = {"weight": w / 2}
+            block["size"] = {"weight": w / 2}
+        parent["children"].insert(i + 1 if after else i, block)
+    else:
+        group = {"children": [anchor, block] if after else [block, anchor],
+                 "id": new_id("s"), "type": want}
+        if "size" in anchor:
+            group["size"] = anchor.pop("size")
+        parent["children"][i] = group
+    return hit["space"], hit["tab"]
+
+
+def append_to_tab(tab, block):
+    root = tab["root"]
+    kids = root["children"]
+    if kids and all(weight(k) is not None for k in kids):
+        last = kids[-1]
+        half = weight(last) / 2
+        last["size"] = {"weight": half}
+        block["size"] = {"weight": half}
+    kids.append(block)
+
+
+# ================================================================ app helpers
+
+def app_panes():
+    out = {}
+    for sp in sh_json(["herdr-app", "ls"])["spaces"]:
+        for tb in sp["tabs"]:
+            for t in tb["terminals"]:
+                out[t["terminal"]] = {"pane": t["pane"], "tab": tb["id"], "space": sp["id"]}
+    return out
+
+
+def wait_for_pane(terminal, tab=None):
+    deadline = time.time() + WAIT_SECONDS
+    while time.time() < deadline:
+        hit = app_panes().get(terminal)
+        if hit and (tab is None or hit["tab"] == tab):
+            return hit
+        time.sleep(0.3)
+    raise Fail(f"{terminal} did not appear in tab {tab} within {WAIT_SECONDS}s")
+
+
+def wait_gone(terminal):
+    deadline = time.time() + WAIT_SECONDS
+    while time.time() < deadline:
+        if terminal not in app_panes():
+            return
+        time.sleep(0.3)
+    raise Fail(f"{terminal} still has a pane after parking")
+
+
+def split_placeholder(anchor_pane, direction):
+    r = app("pane.split", direction=direction, pane=anchor_pane, argv=PLACEHOLDER)
+    return r["terminal"], r["pane"]
+
+
+def drop_placeholder(ph_terminal, ph_pane):
+    app("pane.close", pane=ph_pane)
+    deadline = time.time() + WAIT_SECONDS
+    while time.time() < deadline:
+        p = sh(["hc", "get", ph_terminal, "--json"], check=False)
+        if p.returncode != 0:
+            return
+        if json.loads(p.stdout).get("state") == "finished":
+            sh(["hc", "rm", ph_terminal], check=False)
+            return
+        time.sleep(0.3)
+
+
+def bring_into(terminal, machine, space_local, tab_local, ph_terminal, ph_pane):
+    """App route: put `terminal` where the placeholder is, then drop the placeholder."""
+    if app_panes().get(terminal):
+        app("terminal.park", terminal=terminal)
+        wait_gone(terminal)
+    sh(["hc", "label", terminal, f"herdr.space={space_local}", f"herdr.tab={tab_local}"])
+    landed = wait_for_pane(terminal, qualify(machine, tab_local))
+    app("pane.swap", pane=landed["pane"], target=ph_pane)
+    drop_placeholder(ph_terminal, ph_pane)
+    return landed["pane"]
+
+
+def set_weights_app(machine, nodes, ratio):
+    total = float(sum(ratio))
+    for node, part in zip(nodes, ratio):
+        app("layout.resize", id=qualify(machine, node["id"]), weight=part / total)
+
+
+# ================================================================ shared steps
+
+def relabel(machine, doc, tab_ids):
+    """The doc route does not make the app relabel; keep herdr.space/herdr.tab true."""
+    for sp, tb in tabs(doc):
+        if tb["id"] not in tab_ids:
+            continue
+        for t in terminals_under(tb["root"]):
+            sh(["hc", "label", qualify(machine, t), f"herdr.space={sp['id']}",
+                f"herdr.tab={tb['id']}"], check=False)
+
+
+def ensure_running(machine, terminal_local):
+    p = sh(["hc", "get", qualify(machine, terminal_local), "--json"], check=False)
+    if p.returncode != 0:
+        raise Fail(f"no terminal {qualify(machine, terminal_local)}")
+    t = json.loads(p.stdout)
+    if t.get("state") != "live":
+        raise Fail(f"{qualify(machine, terminal_local)} is {t.get('state')}, not running")
+    if not t.get("keep"):
+        sh(["hc", "keep", qualify(machine, terminal_local)])
+
+
+def start_terminal(machine, cwd, argv, labels=()):
+    args = ["hc", "run", "--bg", "--json", "--keep", "--no-parent"]
+    if machine:
+        args += ["--on", machine]
+    if cwd:
+        args += ["--cwd", cwd]
+    for k, v in labels:
+        args += ["--label", f"{k}={v}"]
+    args += ["--"] + argv if argv else []
+    r = sh_json(args)
+    _, local = split_id(r["address"])
+    return local
+
+
+def parse_ratio(text):
+    try:
+        parts = [float(x) for x in text.replace("/", ":").split(":")]
+    except ValueError:
+        raise Fail(f"bad ratio {text!r}; use numbers like 7:3 or 1:1:2")
+    if len(parts) < 2 or any(p <= 0 for p in parts):
+        raise Fail("a ratio needs two or more positive numbers")
+    return parts
+
+
+def verify_beside(machine, term_local, anchor_id, direction):
+    doc = doc_get(machine)
+    me, there = locate(doc, term_local), locate(doc, anchor_id)
+    want = "row" if direction in ("right", "left") else "column"
+    ok = bool(me and there and me["parent"] is not None and me["parent"] is there["parent"]
+              and me["parent"]["type"] == want
+              and me["index"] - there["index"] == (1 if direction in ("right", "down") else -1))
+    return ok, me, there
+
+
+def apply_ratio(r, machine, me, there, direction, ratio_text):
+    ratio = parse_ratio(ratio_text)
+    if len(ratio) != 2:
+        raise Fail("--ratio here takes A:B (anchor:terminal)")
+    first, second = (there, me) if direction in ("right", "down") else (me, there)
+    parts = ratio if direction in ("right", "down") else ratio[::-1]
+    # Split the share the two hold together, so other siblings keep theirs
+    # (a missing weight counts as 1).
+    share = sum(1.0 if weight(n["node"]) is None else weight(n["node"]) for n in (first, second))
+    parts = [p * share / sum(parts) for p in parts]
+    if r == "app":
+        for node, part in zip((first["node"], second["node"]), parts):
+            app("layout.resize", id=qualify(machine, node["id"]), weight=part)
+    else:
+        ids = (first["node"]["id"], second["node"]["id"])
+
+        def mutate(doc):
+            for node_id, part in zip(ids, parts):
+                locate(doc, node_id)["node"]["size"] = {"weight": part}
+        doc_change(machine, mutate)
+
+
+# ================================================================ commands
+
+def cmd_tree(a):
+    doc = doc_get(a.on)
+    picked = []
+    for sp, tb in tabs(doc):
+        if not a.what:
+            picked.append((sp, tb))
+            continue
+        for w in a.what:
+            _, w = split_id(w)
+            hit = locate(doc, w)
+            if w in (sp["id"], sp.get("name"), tb["id"], tb.get("name")) or (hit and hit["tab"] is tb):
+                picked.append((sp, tb))
+                break
+    if a.json:
+        print(json.dumps([{"space": sp["id"], "space_name": sp.get("name"), "tab": tb["id"],
+                           "tab_name": tb.get("name"), "root": tb["root"]} for sp, tb in picked],
+                         ensure_ascii=False, indent=1))
+        return
+    if not picked:
+        raise Fail("nothing matched")
+    out = []
+    for sp, tb in picked:
+        out.append(f"space {qualify(a.on, sp['id'])} ({sp.get('name') or '-'}) "
+                   f"tab {qualify(a.on, tb['id'])} ({tb.get('name') or '-'})")
+        show_tree(tb["root"], a.on, out)
+    print("\n".join(out))
+
+
+def cmd_where(a):
+    machine = one_machine(a.terminal, on=a.on)
+    _, local = split_id(a.terminal)
+    hit = locate(doc_get(machine), local)
+    if not hit:
+        raise Fail(f"{a.terminal} is not in any tab (it runs without a pane, or the id is wrong)")
+    parent = hit["parent"]
+    print(json.dumps({
+        "machine": machine,
+        "space": hit["space"]["id"], "space_name": hit["space"].get("name"),
+        "tab": hit["tab"]["id"], "tab_name": hit["tab"].get("name"),
+        "pane": hit["node"]["id"],
+        "app_ids": {"space": qualify(machine, hit["space"]["id"]),
+                    "tab": qualify(machine, hit["tab"]["id"]),
+                    "pane": qualify(machine, hit["node"]["id"])},
+        "parent": parent and {"id": parent["id"], "type": parent["type"], "index": hit["index"]},
+    }, ensure_ascii=False, indent=1))
+
+
+def cmd_place(a):
+    r = route(a)
+    machine = one_machine(a.terminal, a.anchor)
+    _, term_local = split_id(a.terminal)
+    _, anchor_local = split_id(a.anchor)
+    doc = doc_get(machine)
+    anchor = locate(doc, anchor_local)
+    if not anchor or anchor["node"]["type"] != "block":
+        raise Fail(f"anchor {a.anchor} is not a pane in any tab")
+    anchor_id = anchor["node"]["id"]
+    if terminal_of(anchor["node"]) == term_local:
+        raise Fail("the terminal and the anchor are the same pane")
+    ensure_running(machine, term_local)
+
+    if r == "app":
+        terminal = qualify(machine, term_local)
+        anchor_pane = qualify(machine, anchor_id)
+        base = "right" if a.direction in ("right", "left") else "down"
+        ph_terminal, ph_pane = split_placeholder(anchor_pane, base)
+        if a.direction in ("left", "up"):
+            app("pane.swap", pane=anchor_pane, target=ph_pane)
+        bring_into(terminal, machine, anchor["space"]["id"], anchor["tab"]["id"], ph_terminal, ph_pane)
+    else:
+        def mutate(doc):
+            old = locate(doc, term_local)
+            block = old["node"] if old else {"content": {"terminal": term_local},
+                                             "id": new_id("p"), "type": "block"}
+            if old:
+                detach(doc, old["node"]["id"])
+                block.pop("size", None)
+            sp, tb = insert_beside(doc, anchor_id, block, a.direction)
+            return tb["id"]
+        tab_id = doc_change(machine, mutate)
+        relabel(machine, doc_get(machine), {tab_id})
+
+    ok, me, there = verify_beside(machine, term_local, anchor_id, a.direction)
+    if ok and a.ratio:
+        apply_ratio(r, machine, me, there, a.direction, a.ratio)
+    print(json.dumps({"via": r, "terminal": qualify(machine, term_local),
+                      "pane": me and qualify(machine, me["node"]["id"]),
+                      "beside": qualify(machine, anchor_id), "direction": a.direction,
+                      "verified": ok}, indent=1))
+    if not ok:
+        raise Fail("placed, but the tree does not show it where asked; check with `tree`")
+
+
+def cmd_open(a):
+    r = route(a)
+    argv = a.cmd[1:] if a.cmd and a.cmd[0] == "--" else a.cmd
+    if bool(a.anchor) == bool(a.new_tab_in):
+        raise Fail("give either --anchor with --direction, or --new-tab-in")
+    if a.anchor:
+        if not a.direction:
+            raise Fail("--anchor needs --direction")
+        machine = one_machine(a.anchor)
+        _, anchor_local = split_id(a.anchor)
+        hit = locate(doc_get(machine), anchor_local)
+        if not hit or hit["node"]["type"] != "block":
+            raise Fail(f"anchor {a.anchor} is not a pane in any tab")
+        if r == "app" and a.direction in ("right", "down"):
+            res = app("pane.split", direction=a.direction, pane=qualify(machine, hit["node"]["id"]),
+                      argv=argv or None)
+            _, term_local = split_id(res["terminal"])
+            ok, me, there = verify_beside(machine, term_local, hit["node"]["id"], a.direction)
+            if ok and a.ratio:
+                apply_ratio(r, machine, me, there, a.direction, a.ratio)
+            print(json.dumps({"via": r, "terminal": res["terminal"], "pane": res["pane"],
+                              "verified": ok}, indent=1))
+            return
+        term_local = start_terminal(machine, a.cwd, argv)
+        a.terminal = qualify(machine, term_local)
+        cmd_place(a)
+        return
+    machine = one_machine(a.new_tab_in)
+    _, space_local = split_id(a.new_tab_in)
+    space = find_space(doc_get(machine), space_local)
+    if not space:
+        raise Fail(f"space {a.new_tab_in} not found")
+    if r == "app":
+        res = app("tab.new", space=qualify(machine, space["id"]), name=a.name, folder=a.cwd,
+                  argv=argv or None, focus=False)
+        print(json.dumps({"via": r, **res}, indent=1))
+        return
+    tab_id = new_id("tb")
+    term_local = start_terminal(machine, a.cwd, argv)
+
+    def mutate(doc):
+        sp = find_space(doc, space["id"])
+        if not sp:
+            raise Fail("the space went away")
+        sp["tabs"].append({"id": tab_id, "name": a.name or "",
+                           "root": {"children": [{"content": {"terminal": term_local},
+                                                  "id": new_id("p"), "type": "block"}],
+                                    "id": tab_id, "type": "row"}})
+    doc_change(machine, mutate)
+    relabel(machine, doc_get(machine), {tab_id})
+    print(json.dumps({"via": r, "space": qualify(machine, space["id"]),
+                      "tab": qualify(machine, tab_id), "terminal": qualify(machine, term_local)},
+                     indent=1))
+
+
+def cmd_resize(a):
+    r = route(a)
+    machine = one_machine(a.target, on=a.on)
+    _, local = split_id(a.target)
+    hit = locate(doc_get(machine), local)
+    if not hit:
+        raise Fail(f"{a.target} is not in any tab")
+    parent = hit["parent"]
+    if parent is None:
+        raise Fail(f"{a.target} is a tab's outermost split; give one of its children")
+    ratio = parse_ratio(a.ratio)
+    kids = parent["children"]
+    if len(ratio) != len(kids):
+        raise Fail(f"{parent['type']} {qualify(machine, parent['id'])} has {len(kids)} children "
+                   f"(in order: {', '.join(describe(k) for k in kids)}); give {len(kids)} numbers")
+    if r == "app":
+        set_weights_app(machine, kids, ratio)
+    else:
+        ids = [k["id"] for k in kids]
+
+        def mutate(doc):
+            p = locate(doc, parent["id"])
+            if not p or [k["id"] for k in p["node"]["children"]] != ids:
+                raise Fail("that split changed while resizing; run it again")
+            total = float(sum(ratio))
+            for k, part in zip(p["node"]["children"], ratio):
+                k["size"] = {"weight": part / total}
+        doc_change(machine, mutate)
+    after = locate(doc_get(machine), parent["id"])["node"]["children"]
+    print(json.dumps({"via": r, "split": qualify(machine, parent["id"]), "direction": parent["type"],
+                      "children": [{"id": qualify(machine, k["id"]), "what": describe(k),
+                                    "weight": weight(k)} for k in after]}, indent=1))
+
+
+def cmd_move_tab(a):
+    r = route(a)
+    machine = one_machine(a.tab, a.to_space)
+    _, tab_local = split_id(a.tab)
+    _, space_local = split_id(a.to_space)
+    doc = doc_get(machine)
+    src_space, src_tab = find_tab(doc, tab_local)
+    if not src_tab:
+        raise Fail(f"tab {a.tab} not found")
+    dst_space = find_space(doc, space_local)
+    if not dst_space:
+        raise Fail(f"space {a.to_space} not found on {machine or 'this computer'}")
+    if dst_space["id"] == src_space["id"]:
+        if a.index:
+            if r == "app":
+                app("tab.move", id=qualify(machine, src_tab["id"]), index=a.index)
+            else:
+                def reorder(doc):
+                    sp, tb = find_tab(doc, src_tab["id"])
+                    sp["tabs"].remove(tb)
+                    sp["tabs"].insert(max(0, a.index - 1), tb)
+                doc_change(machine, reorder)
+            print(json.dumps({"via": r, "tab": qualify(machine, src_tab["id"]), "index": a.index}))
+            return
+        raise Fail("already in that space")
+
+    if r == "doc":
+        def mutate(doc):
+            sp, tb = find_tab(doc, src_tab["id"])
+            dst = find_space(doc, dst_space["id"])
+            if not tb or not dst:
+                raise Fail("the tab or the space went away")
+            sp["tabs"].remove(tb)
+            if not sp["tabs"]:
+                doc["spaces"].remove(sp)
+            pos = len(dst["tabs"]) if not a.index else max(0, a.index - 1)
+            dst["tabs"].insert(pos, tb)
+        doc_change(machine, mutate)
+        relabel(machine, doc_get(machine), {src_tab["id"]})
+        print(json.dumps({"via": r, "tab": qualify(machine, src_tab["id"]),
+                          "space": qualify(machine, dst_space["id"])}, indent=1))
+        return
+
+    src_root = json.loads(json.dumps(src_tab["root"]))
+    shown = app_panes()
+    for term in terminals_under(src_root):
+        if qualify(machine, term) not in shown:
+            raise Fail(f"{term} is in the tab but not shown by the app; nothing was moved")
+    made = app("tab.new", space=qualify(machine, dst_space["id"]), name=src_tab.get("name") or None,
+               argv=PLACEHOLDER, focus=False)
+    new_tab_app = made["tab"]
+    _, new_tab_local = split_id(new_tab_app)
+    root_ph_pane = wait_for_pane(made["terminal"], new_tab_app)["pane"]
+
+    def build(node, ph_terminal, ph_pane):
+        if node["type"] == "block":
+            content = node.get("content") or {}
+            if content.get("terminal"):
+                bring_into(qualify(machine, content["terminal"]), machine, dst_space["id"],
+                           new_tab_local, ph_terminal, ph_pane)
+            else:
+                res = app("pane.split", direction="right", pane=ph_pane, mod=content.get("mod"),
+                          props=content.get("props"))
+                app("pane.swap", pane=res["pane"], target=ph_pane)
+                drop_placeholder(ph_terminal, ph_pane)
+            return
+        direction = "right" if node["type"] == "row" else "down"
+        slots = [(ph_terminal, ph_pane)]
+        for _ in node["children"][1:]:
+            slots.append(split_placeholder(slots[-1][1], direction))
+        for child, (t, p) in zip(node["children"], slots):
+            build(child, t, p)
+
+    build(src_root, made["terminal"], root_ph_pane)
+
+    _, new_tab = find_tab(doc_get(machine), new_tab_local)
+    by_key = {(n["type"], tuple(terminals_under(n))): n for n, *_ in walk(new_tab["root"])
+              if terminals_under(n)}
+    missed = []
+    for n, parent, _, _ in walk(src_root):
+        if parent is None or n is not parent["children"][0]:
+            continue
+        weights = [weight(k) for k in parent["children"]]
+        if all(w is None for w in weights):
+            continue
+        weights = [1.0 if w is None else w for w in weights]
+        targets = [by_key.get((k["type"], tuple(terminals_under(k)))) for k in parent["children"]]
+        if any(t is None for t in targets):
+            missed.append(describe(parent))
+            continue
+        set_weights_app(machine, targets, weights)
+    if a.index:
+        app("tab.move", id=new_tab_app, index=a.index)
+    print(json.dumps({"via": r, "tab": new_tab_app, "space": qualify(machine, dst_space["id"]),
+                      "sizes_not_matched": missed}, indent=1))
+    if missed:
+        raise Fail("moved, but some split sizes could not be matched; adjust them with `resize`")
+
+
+def cmd_adopt(a):
+    r = route(a)
+    if not (a.tab or a.tab_of):
+        raise Fail("give --tab TAB or --tab-of TERMINAL")
+    machine = one_machine(a.terminal, a.tab or a.tab_of)
+    _, term_local = split_id(a.terminal)
+    doc = doc_get(machine)
+    if a.tab_of:
+        hit = locate(doc, split_id(a.tab_of)[1])
+        if not hit:
+            raise Fail(f"{a.tab_of} is not in any tab")
+        space, tab = hit["space"], hit["tab"]
+    else:
+        space, tab = find_tab(doc, split_id(a.tab)[1])
+        if not tab:
+            raise Fail(f"tab {a.tab} not found")
+    ensure_running(machine, term_local)
+    if locate(doc, term_local):
+        raise Fail(f"{a.terminal} already has a pane; use `place` to move it")
+    terminal = qualify(machine, term_local)
+    if r == "app":
+        sh(["hc", "label", terminal, f"herdr.space={space['id']}", f"herdr.tab={tab['id']}"])
+        hit = wait_for_pane(terminal, qualify(machine, tab["id"]))
+        pane = hit["pane"]
+    else:
+        def mutate(doc):
+            _, tb = find_tab(doc, tab["id"])
+            if not tb:
+                raise Fail("the tab went away")
+            block = {"content": {"terminal": term_local}, "id": new_id("p"), "type": "block"}
+            append_to_tab(tb, block)
+            return block["id"]
+        pane = qualify(machine, doc_change(machine, mutate))
+        relabel(machine, doc_get(machine), {tab["id"]})
+    print(json.dumps({"via": r, "terminal": terminal, "tab": qualify(machine, tab["id"]),
+                      "pane": pane}, indent=1))
+
+
+def main():
+    p = argparse.ArgumentParser(prog="hc-layout", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--via", choices=["app", "doc"], help="force a route (default: app when reachable)")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("tree"); s.add_argument("what", nargs="*"); s.add_argument("--on")
+    s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_tree)
+    s = sub.add_parser("where"); s.add_argument("terminal"); s.add_argument("--on")
+    s.set_defaults(fn=cmd_where)
+    s = sub.add_parser("open"); s.add_argument("--anchor"); s.add_argument("--new-tab-in")
+    s.add_argument("--direction", choices=["right", "down", "left", "up"])
+    s.add_argument("--ratio"); s.add_argument("--name"); s.add_argument("--cwd")
+    s.add_argument("cmd", nargs=argparse.REMAINDER); s.set_defaults(fn=cmd_open)
+    s = sub.add_parser("place"); s.add_argument("terminal"); s.add_argument("--anchor", required=True)
+    s.add_argument("--direction", required=True, choices=["right", "down", "left", "up"])
+    s.add_argument("--ratio"); s.set_defaults(fn=cmd_place)
+    s = sub.add_parser("resize"); s.add_argument("target"); s.add_argument("--ratio", required=True)
+    s.add_argument("--on"); s.set_defaults(fn=cmd_resize)
+    s = sub.add_parser("move-tab"); s.add_argument("tab"); s.add_argument("--to-space", required=True)
+    s.add_argument("--index", type=int); s.set_defaults(fn=cmd_move_tab)
+    s = sub.add_parser("adopt"); s.add_argument("terminal"); s.add_argument("--tab")
+    s.add_argument("--tab-of"); s.set_defaults(fn=cmd_adopt)
+    a = p.parse_args()
+    try:
+        a.fn(a)
+    except Fail as e:
+        print(f"hc-layout: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
