@@ -107,63 +107,64 @@ Two TUI rules hold as written:
   what the screen shows.
 - **Clean up only what you started** (rule 8): `hc kill` then `hc rm`, on terminals you launched.
 
-## Splitting and placing: the app, or tab labels
+## Arranging panes: `scripts/hc-layout`
 
-hc runs terminals; it does not arrange windows. **Where the app's window is reachable, splitting and
-placing panes belong to the app's own tooling** (hc's manual points to it; `herdr-app do pane.split`
-is the split). That is also the only way to choose a direction. The judgment in `layout.md`
-(translate the direction the person said, verify after acting, never steal focus) applies to
-whatever tool does the arranging.
+hc runs terminals; it does not arrange windows. **`scripts/hc-layout` does every arrangement this
+skill needs, from any machine, without moving focus.** Use it instead of rebuilding the steps. It
+lives in this skill's own directory (the base directory shown when the skill loads), wherever the
+skill was installed.
 
-### No app window on this machine: join the tab with labels
+```bash
+L=<this skill's directory>/scripts/hc-layout
+"$L" tree [space|tab|terminal ...] [--on M]       # the split tree: groups, direction, weights, ids
+"$L" where "$HC_TERMINAL_ID"                       # the space, tab and pane holding a terminal
+"$L" open --anchor <pane|terminal> --direction right|down|left|up [--ratio 6:4] [--cwd D] [-- CMD]
+"$L" open --new-tab-in <space> [--name N] [--cwd D] [-- CMD]   # default CMD: the machine's shell
+"$L" place <terminal> --anchor <pane|terminal> --direction D [--ratio A:B]  # running terminal there
+"$L" resize <pane|terminal|group> --ratio 2:1[:1]  # that node and its siblings, in tree order
+"$L" move-tab <tab> --to-space <space> [--index N] # same machine; tree, ids and sizes kept
+"$L" adopt <terminal> --tab-of <terminal>          # add a running terminal at the end of a tab
+```
 
-A session on a remote machine often cannot reach the app at all: the app's own tooling fails with no
-Herdr window to connect to, and that machine's `hc machine ls` does not list the machine running the
-app. That is no reason to answer a "split inside this tab" request with a subagent, or to report
-that splitting is impossible.
+Read ids from `tree` or `herdr-app ls`; another machine's ids carry a `machine/` prefix in the app,
+and the script takes either form. `--ratio` on `open`/`place` is anchor:new and splits the share
+the two held, so other siblings keep theirs. Every command prints JSON with the route it took
+(`via`); `place` and `open` also report `verified` from reading the tree back (rule 3).
 
-The app's documentation (`herdr-app --skill`, "The model: spaces, tabs, terminals") says the app
-tags the terminals it starts with `herdr.space=<id>` and `herdr.tab=<id>`, and that **a terminal
-carrying those labels appears in that tab, even if you started it yourself.** The IDs are those of
-the machine the terminal runs on: drop the `<machine>/` prefix the app shows for remote IDs. An ID
-the app does not know becomes a new space or tab, and a terminal without the labels does not appear
-in the app at all.
+### Two routes, chosen automatically
 
-So, on a machine without the app's window:
+| Route | When | How it changes the layout |
+|---|---|---|
+| `app` | `herdr-app status` works here (the computer with the Herdr window) | Public commands only. A placeholder pane is split where the terminal should go, the terminal joins the tab by labels and is swapped into the placeholder's slot, the placeholder closes. `layout.resize` sets sizes. Nothing takes focus |
+| `doc` | No Herdr app here (a remote machine over ssh) | Writes that machine's layout document with `doc.set`: the shape is checked first (unknown shape: nothing is written), the write carries the version read (another client wrote first: read again and retry), and the edit follows what the app itself writes. Then `herdr.space`/`herdr.tab` labels are set, since the app does not relabel |
 
-1. Read your own labels: `hc get "$HC_TERMINAL_ID" --json` and its `labels` object.
-2. Start the new terminal with both values copied, and `--keep`:
+Every client (desktop, mobile, another computer) draws from the machine's layout document, so both
+routes show the same everywhere. Measured with herdr-app 0.1.16 and hc 0.1.21: the app picked up
+`doc` writes at once, kept them alongside its own commands, and refused a stale version with
+`conflict`. Not measured: a write while no app is running (the app reads the document when it
+starts), and the mobile app's screen. **Write the document only through the script's `doc` route**,
+and only where no app is reachable: never with your own `doc.set`, and never with `--via doc` where
+`herdr-app status` works. Reading it (`tree`, `where`) is fine anywhere.
 
-   ```bash
-   hc run --bg --keep --label herdr.space=<space id> --label herdr.tab=<tab id> <program>
-   ```
+If a newer Herdr stores the document differently, the script stops with "a shape this script does
+not know" and changes nothing. Report that; do not work around it.
 
-   `--bg` returns at once instead of waiting for the program to end. For an agent, the tagged
-   request goes in the argument as usual (Same contract, different carrier).
+### Limits that hold on either route
 
-What each label set produced, compared on a remote machine with `hc get` (measured):
+- **A terminal belongs to its machine.** No tab or pane moves between machines; the script refuses.
+- **Labels place only a terminal without a pane.** Relabelling a pane's terminal moves nothing
+  (measured); moving one is `place` or `move-tab`.
+- A labelled terminal with no app running and no `doc` write appears only when an app next starts.
+  `hc run --bg --keep --label herdr.space=<id> --label herdr.tab=<id>` lands at the end of the
+  tab's outermost split; with `herdr.space` only, as a new tab; with no labels, nowhere.
+- A tab that is not shown reports default terminal sizes (120x40); judge sizes from `tree`.
+- Weights are relative within one split; a missing weight counts as `1` (consistent with every
+  measurement).
 
-| Child started with | Where it appeared |
-|---|---|
-| The parent's `herdr.space` and `herdr.tab`, plus `--keep` | A split pane in the parent's tab |
-| `herdr.space` only | A new tab in the same space |
-| No labels | No tab at all; it exists only as a child terminal |
+### Lifetimes and cleanup
 
-The parent in the successful case was started by the app, so it carried both labels from the start.
-**A terminal started by the app can still lack `herdr.tab`** (measured on a local machine). Then the
-labels alone do not tell you the tab. Where the app is reachable, find the tab holding your terminal
-in `herdr-app ls`. Where it is not, tell the person the terminal will open as a new tab, and ask
-before starting it.
-
-Limits of this route:
-
-- **No direction.** The app's documentation gives no way to choose right or below. If the person
-  named a direction, say it cannot be guaranteed this way. Observed, not documented: a labeled
-  terminal attaches at the end of the tab's outermost split, and a tab with one pane splits in half
-  to the right.
-- **It is still your child.** The labels place it on screen; hc's parent and child relationship
-  stays. A terminal meant to stay after you end needs `--outlive-parent` as well (Same contract,
-  different carrier).
-- **Verify after starting** (rule 3): read the new terminal back with `hc get` and confirm both
-  labels and `keep`. When you cannot see the screen, tell the person where it should appear and
-  let them confirm.
+- `open` starts terminals with `--no-parent --keep`, like the app's own: they outlive the agent
+  that asked. A terminal you start yourself with `hc run` stays your child; add `--outlive-parent`
+  if it should stay after you end.
+- **Clean up only what you started.** The script removes its own placeholders
+  (`sh -c 'while :; do sleep 3600; done'`); it never closes a pane it did not create.
