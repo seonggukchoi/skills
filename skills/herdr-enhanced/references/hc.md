@@ -107,15 +107,15 @@ Two TUI rules hold as written:
   what the screen shows.
 - **Clean up only what you started** (rule 8): `hc kill` then `hc rm`, on terminals you launched.
 
-## Arranging panes: `scripts/hc-layout`
+## Arranging panes: `scripts/app/hc-layout`
 
-hc runs terminals; it does not arrange windows. **`scripts/hc-layout` does every arrangement this
+hc runs terminals; it does not arrange windows. **`scripts/app/hc-layout` does every arrangement this
 skill needs, from any machine, without moving focus.** Use it instead of rebuilding the steps. It
 lives in this skill's own directory (the base directory shown when the skill loads), wherever the
 skill was installed.
 
 ```bash
-L=<this skill's directory>/scripts/hc-layout
+L=<this skill's directory>/scripts/app/hc-layout
 "$L" tree [space|tab|terminal ...] [--on M]       # the split tree: groups, direction, weights, ids
 "$L" where "$HC_TERMINAL_ID"                       # the space, tab and pane holding a terminal
 "$L" open --anchor <pane|terminal> --direction right|down|left|up [--ratio 6:4] [--cwd D] [-- CMD]
