@@ -132,6 +132,7 @@ is carried out with the `herdr` CLI; in hc mode, `references/hc.md` says how ins
 | **Anything, in hc mode** (`$HC_TERMINAL_ID` set). You received an `hc` tag | `references/hc.md` first, then the rows below for the judgment |
 | Naming, creating, or moving a pane. Telling a person which pane you mean | `references/targeting.md` |
 | Splitting left/right or top/bottom. Opening several. Tidying an arrangement | `references/layout.md` |
+| **In hc mode, on any machine**: splitting, opening a tab, bringing a background terminal into a tab, pane or group ratios, moving a tab to another space | `scripts/hc-layout` (usage in `references/hc.md`, "Arranging panes") |
 | A pane or agent is gone. Interpreting a status name | `references/lifecycle.md` |
 | Launching an agent (`agent start`), running a command in a pane (`pane run`) | **the official `herdr` skill** — syntax lives there and is not copied here. But **the moment you consider putting even one line of work into the startup arguments**, that is a delegation: read the two rows below first. "Just launching it" and "handing it work" use the same command, so you cannot tell them apart on your own |
 | Handing work to another pane and getting results back. You received a `herdr` tag or reply | `references/protocol.md` |

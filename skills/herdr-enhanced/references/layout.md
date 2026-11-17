@@ -9,8 +9,8 @@ how many, and in what order to split.
 
 In hc mode (`$HC_TERMINAL_ID` set), follow `hc.md`: `hc` does not arrange windows, so the commands
 below do not apply, while the judgment (translate the direction, verify after acting, keep focus)
-still does. Splitting goes through the app's tooling, or, on a machine without the app's window,
-through tab labels on `hc run`, as `hc.md` describes.
+still does. Splitting, opening tabs, placing, resizing and moving tabs go through
+`scripts/hc-layout`, on any machine and without moving focus, as `hc.md` describes.
 
 ## Translate what the person said into arguments
 
