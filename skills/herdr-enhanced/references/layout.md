@@ -10,7 +10,7 @@ how many, and in what order to split.
 In hc mode (`$HC_TERMINAL_ID` set), follow `hc.md`: `hc` does not arrange windows, so the commands
 below do not apply, while the judgment (translate the direction, verify after acting, keep focus)
 still does. Splitting, opening tabs, placing, resizing and moving tabs go through
-`scripts/hc-layout`, on any machine and without moving focus, as `hc.md` describes.
+`scripts/app/hc-layout`, on any machine and without moving focus, as `hc.md` describes.
 
 ## Translate what the person said into arguments
 
