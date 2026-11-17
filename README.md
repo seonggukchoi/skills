@@ -17,7 +17,7 @@ npx skills add seonggukchoi/skills
 Or install one or more specific skills with the repeatable `--skill` flag:
 
 ```bash
-npx skills add seonggukchoi/skills --skill agent-creator --skill youtube-markdown
+npx skills add seonggukchoi/skills --skill bitwarden-cli --skill youtube-markdown
 ```
 
 Other commands: `npx skills list`, `npx skills update`, `npx skills remove <skill>`.
@@ -29,10 +29,6 @@ Each skill can be installed on its own:
 | Skill | Description | Install |
 | --- | --- | --- |
 | [`agent-browser-human-control`](skills/agent-browser-human-control) | Drive a browser over CDP with human-like input — curved mouse movement, natural typing, Hangul IME, touch gestures. | `npx skills add seonggukchoi/skills --skill agent-browser-human-control` |
-| [`agent-creator`](skills/agent-creator) | Design, create, diagnose, and improve AI subagent profiles as markdown files. | `npx skills add seonggukchoi/skills --skill agent-creator` |
-| [`agent-instruction-management`](skills/agent-instruction-management) | Write, refactor, and manage agent instruction files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). | `npx skills add seonggukchoi/skills --skill agent-instruction-management` |
-| [`agent-orchestration`](skills/agent-orchestration) | Coordinate, fan out, and synthesize work across multiple subagents. | `npx skills add seonggukchoi/skills --skill agent-orchestration` |
-| [`agent-organization-designer`](skills/agent-organization-designer) | Plan and audit an AI agent organization — which agents to have, role boundaries, and scale. | `npx skills add seonggukchoi/skills --skill agent-organization-designer` |
 | [`bitwarden-cli`](skills/bitwarden-cli) | Work with passwords, secrets, notes, and Sends through the Bitwarden CLI (VaultWarden / self-hosted / REST). | `npx skills add seonggukchoi/skills --skill bitwarden-cli` |
 | [`codex-image-generation`](skills/codex-image-generation) | Generate and edit images via the Codex CLI's built-in `image_gen` (ChatGPT subscription token, no API key). | `npx skills add seonggukchoi/skills --skill codex-image-generation` |
 | [`doc-to-markdown`](skills/doc-to-markdown) | Convert document files (PDF, DOCX, PPTX, XLSX, HWP) into clean markdown. | `npx skills add seonggukchoi/skills --skill doc-to-markdown` |
