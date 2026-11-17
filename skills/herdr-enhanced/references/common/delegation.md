@@ -1,8 +1,25 @@
 # Deciding what to delegate, and working together
 
-What to hand off, who to hand it to, and how to word it. The wire format itself is in
-`protocol.md` — **read that before you send.** Send plain prose with no envelope and the receiving
-side has nowhere to reply to, and that failure is silent.
+What to hand off, who to hand it to, and how to word it. The wire format is in
+[protocol-tag.md](protocol-tag.md) — **read that before you send.** Send plain prose with no envelope
+and the receiving side has nowhere to reply to, and that failure is silent.
+
+How to carry it out:
+[tui/delegating.md](../tui/delegating.md) (building the roster with `agent list`, starting a peer in
+three steps, why not `--wait`) ·
+[app/delegating.md](../app/delegating.md) (what hc already does, `hc ls`, the first request in the
+`hc run` argument, `hc wait --children`, `--outlive-parent`).
+
+## What makes it a delegation
+
+**What makes something a delegation is the text you send, not the command you use.** If the
+recipient is an agent and the text contains work to do, it is a delegation, whatever argument
+carried it — including the arguments of the command that launches the agent, and a command run into
+a pane where an agent is up (that text goes into their input box, not into a shell).
+
+So **a new peer's first work arrives as a tagged request, never as an untagged line of work.** Each
+CLI carries it differently: the TUI cannot fit a tag into launch arguments, so the tag goes in after
+launch; hc puts the tag in the launch argument itself. Neither lets a plain sentence of work through.
 
 ## Do it yourself, or delegate?
 
@@ -33,19 +50,13 @@ means finding something that already exists.
 
 When the user names a specific target, **query first rather than creating one arbitrarily.**
 
-```bash
-herdr agent list
-herdr pane list          # do not add --workspace (below)
-```
+**The list includes you.** The listing does not filter out the calling pane (measured in the TUI: one
+of nine entries was the caller; `hc ls` lists every live terminal including you). Delegate to the
+list as-is and **you send to yourself**, whose tag re-triggers this skill and starts the same work
+over. Drop your own address when building the roster.
 
-**The list includes you.** `agent list` does not filter out the calling pane (measured: one of nine
-entries was `$HERDR_PANE_ID`). Delegate to the list as-is and **you send to yourself**, whose tag
-re-triggers this skill and starts the same work over. Drop `$HERDR_PANE_ID` when building the
-roster.
-
-**Do not add `--workspace` when enumerating everything.** That option narrows scope to the current
-workspace (measured: 2 of 10 returned). It is right when confirming membership, but here **a target
-you did not send to is a silent omission**, so the scope must not be narrowed.
+**Do not narrow the scope when enumerating everything.** A target you did not send to is a silent
+omission (see below).
 
 | Status | What to do |
 |---|---|
@@ -53,18 +64,17 @@ you did not send to is a silent omission**, so the scope must not be narrowed.
 | `done` | An unacknowledged result is sitting there. **Read it first**, then decide whether to build on it or start something new |
 | `working` | It will queue, but tell the user first if it looks like a long wait |
 | `blocked` | Waiting on a person's answer. **Do not stack a new request** — it gets absorbed as the answer to the question and disappears. Read what is being asked first |
-| `unknown` | Alive but unclassified by herdr. You can send, but **you cannot confirm it started.** Record that it is unconfirmable |
+| `unknown` | Alive but unclassified. You can send, but **you cannot confirm it started.** Record that it is unconfirmable |
 | Not in the list | The user said "if there is one", so report that there is not, and ask whether to create one. **Creating one silently defies the expectation** |
 
 Running an ordinary command in an empty shell pane with no agent is not delegation. That path
-(`pane run`, `pane wait-output`) belongs to the **official `herdr` skill** — read the syntax there
-rather than copying it here.
+belongs to the official `herdr` skill (TUI) or `hc --skill` (hc mode).
 
 ## Word the request so nobody has to ask back
 
 A vague delegation makes the receiving side **put up a choice and stop, waiting for a person's
 answer.** Messages arriving meanwhile get absorbed as the answer to that question and disappear, the
-requester never gets a reply, and the whole chain stalls. In herdr this shows up as `blocked`.
+requester never gets a reply, and the whole chain stalls. This shows up as `blocked`.
 
 A request carries **what, where, and in what form to answer.** Points where judgment could diverge
 are settled by the requester before handing over.
@@ -84,8 +94,9 @@ of that moment, so without an update the newcomer stays invisible to everyone.
 
 **Put the branch count (`fanout`) in the request tag.** Replies arrive staggered, and starting your
 synthesis on the first one freezes the conclusion before the rest land. The receiving side echoes
-that value back in its reply, so every reply shows how many more are coming — the format, and the
-rule for what to do once you have it, are in `protocol.md`.
+that value back in its reply, so every reply shows how many more are coming — the format is in
+[protocol-tag.md](protocol-tag.md), and the rule for what to do once you have it is in
+[protocol-waiting.md](protocol-waiting.md).
 
 ## Omissions in a batch delegation are silent
 

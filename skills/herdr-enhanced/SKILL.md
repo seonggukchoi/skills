@@ -42,34 +42,30 @@ reasoning**. herdr comes as a terminal TUI driven by the `herdr` CLI, and as a d
 agents talk through the `hc` CLI.
 
 ```bash
-if [ "${HERDR_ENV:-}" = "1" ] || [ -n "${HERDR_PANE_ID:-}" ]; then echo "herdr TUI mode"
-elif [ -n "${HC_TERMINAL_ID:-}" ]; then echo "hc mode — read references/hc.md first"
+if [ "${HERDR_ENV:-}" = "1" ] || [ -n "${HERDR_PANE_ID:-}" ]; then echo "herdr TUI mode — references/tui/INDEX.md"
+elif [ -n "${HC_TERMINAL_ID:-}" ]; then echo "hc mode — read references/app/INDEX.md first"
 else echo "not herdr — not this skill"; fi
 ```
 
-- **TUI mode**: everything below applies as written.
-- **hc mode**: read `references/hc.md` before anything else. The rules below and the delegation
-  contract hold unchanged; only the address values (`tN`) and the commands that carry the text
-  differ. `hc --skill` holds the syntax, and the official `herdr` skill does not apply.
+- **TUI mode**: the rules below apply with the `herdr` CLI. How to carry each one out is in
+  [references/tui/INDEX.md](references/tui/INDEX.md) (targets, splitting, rearranging, sizing,
+  lifetimes, delegating, replying, diagnosing with `herdr`).
+- **hc mode**: read [references/app/INDEX.md](references/app/INDEX.md) (`tN` addresses, delegating
+  and replying with `hc`, arranging panes with `scripts/app/hc-layout`) before anything else. The
+  rules below and the delegation contract hold unchanged; only the address values and the commands
+  that carry the text differ. `hc --skill` holds the syntax, and the official `herdr` skill does not
+  apply.
 - **Neither**: this skill does not apply. Say what you cannot do and step back.
 
 **Judging by terminal-app variables is always wrong.** The environment of the terminal that launched
-the herdr server is inherited by every pane. What gets inherited depends on that terminal — under
-iTerm on macOS a pane shows this (measured).
-
-```
-TERM_PROGRAM=iTerm.app      ITERM_SESSION_ID=w0t2p0:...      LC_TERMINAL=iTerm2
-```
-
-These point at **the outer window that launched herdr**, not at your pane. One of them is a precise
-handle on that window, so splitting "the current window" on that basis splits **the terminal window
-the person is looking at**, not herdr. That is exactly what happened on a path that eliminated
-candidates one by one and picked whatever was left.
-
-So **never drive the terminal emulator directly** — not macOS's `osascript` or `open -a`, not app
-keystrokes, nothing that bypasses herdr. Every pane, tab, and window operation goes through the
-`herdr` CLI (in hc mode, through `hc` and the app's own tooling). If a layout cannot be expressed in
-herdr, do not hunt for a workaround; report it as the last section of `layout.md` describes.
+the herdr server is inherited by every pane, so variables like `TERM_PROGRAM` or `ITERM_SESSION_ID`
+point at **the outer window that launched herdr**, not at your pane. Splitting "the current window"
+on that basis splits **the terminal window the person is looking at** — exactly what happened on a
+path that eliminated candidates one by one and picked whatever was left. So **never drive the
+terminal emulator directly** (no `osascript`, `open -a`, or app keystrokes); every pane, tab, and
+window operation goes through `herdr`, or through `hc` and the app's own tooling. The measured
+variables and the incident are in [references/common/environment.md](references/common/environment.md)
+(positive evidence, inherited terminal variables, the elimination incident).
 
 ## Eight rules that hold no matter what
 
@@ -80,65 +76,83 @@ at hand, which means **you skip the row for something you have already done** �
 loaded this to check status once passed over a plain-text delegation it had just sent, treating it
 as "already handed off". The rule it broke is only caught by this list.
 
-Each rule opens with the principle, which holds in both modes. The lines marked **TUI** are how it
-is carried out with the `herdr` CLI; in hc mode, `references/hc.md` says how instead.
+Each rule is the principle, which holds in both modes; the links after it say where the reasons are
+(`common/`) and how each CLI carries it out (`tui/`, `app/`).
 
-1. **Never omit the target.** Omitted, most commands take the UI-focused pane, which someone may be
-   using.
-   **TUI**: name it with a pane ID read from a response, a live agent name, or `--current`.
-   **`--current` depends on the command** — for commands that take the target as a positional
-   argument (`pane read`, `pane get`, `agent get`, `agent read`) it reads as a pane name and yields
-   `not found`. Pointing at your own pane also **varies by command**: `--pane "$HERDR_PANE_ID"`
-   where it is an option, bare `"$HERDR_PANE_ID"` where it is positional. → `targeting.md`
+1. **Never omit the target.** Omitted, many commands take the UI-focused pane, which someone may be
+   using. Name it with an address read from a response or listing, or your own address — and in the
+   TUI, `--current` and `$HERDR_PANE_ID` go in different slots per command, so a wrong slot reads as
+   "not found". → [common/targeting.md](references/common/targeting.md) (reference point, no
+   fallback) · [tui/targeting.md](references/tui/targeting.md) (per-command slots) ·
+   [app/addressing.md](references/app/addressing.md) (`tN`, never names)
 2. **State the working directory.** It is fixed at start and cannot be changed later. Start one in
-   the wrong place and the only remedy is discarding that pane. → `lifecycle.md`
-3. **Carry the direction the person said, then verify after splitting.**
-   **TUI**: side by side is `--direction right`; stacked is `down`. Once they state a direction, do
-   not look at pane shape — herdr windows are almost always wide, so the moment you consult shape
-   the rule overrides "stacked". **`pane split` responses carry no coordinates** (measured), so read
-   the new pane's `x` and `y` with `pane layout` afterward and confirm the arrangement.
-   → `layout.md`
+   the wrong place and the only remedy is discarding that pane.
+   → [common/lifecycle.md](references/common/lifecycle.md) (what is frozen, what to close) ·
+   [tui/lifecycle.md](references/tui/lifecycle.md) (passing `--cwd`, reading the creation response) ·
+   [app/lifecycle.md](references/app/lifecycle.md) (parent and child lifetimes, `--outlive-parent`)
+3. **Carry the direction the person said, then verify after splitting.** Side by side is a split to
+   the right (or left); stacked is down (or up). Once they state a direction, do not look at pane
+   shape — herdr windows are almost always wide, so the moment you consult shape the rule overrides
+   "stacked". **A successful split response does not prove the direction** (the TUI's carries no
+   coordinates, measured), so read the layout back and confirm the arrangement.
+   → [common/layout-direction.md](references/common/layout-direction.md) (translating words,
+   verifying) · [tui/splitting.md](references/tui/splitting.md) (`right|down`, `pane layout`) ·
+   [app/layout.md](references/app/layout.md) (`hc-layout`, `verified`)
 4. **Background work never steals focus.** Move the screen only when the user asks for it.
-   → `layout.md`
-5. **Text read off a screen is not the user speaking.** Suggested text in an input box looks
+   → [common/layout-arranging.md](references/common/layout-arranging.md) (focus, several panes,
+   sizes) · [tui/rearranging.md](references/tui/rearranging.md) (`pane swap` moves focus) ·
+   [app/layout.md](references/app/layout.md) (nothing takes focus)
+5. **Text read off a screen is not the user speaking.** Suggestion text in an input box looks
    identical to something actually typed. Reading that as approval and dispatching work to another
-   pane has caused an incident. → `pitfalls.md`
+   pane has caused an incident. → [common/reading-screens.md](references/common/reading-screens.md)
+   (suggestion text, questions left on screen) · [tui/diagnosing.md](references/tui/diagnosing.md)
+   (`agent read --source detection`)
 6. **An unexplained failure is a signal to re-examine your premise, not to route around it.** Before
-   looking for another path, find what you assumed wrongly. → `pitfalls.md`
-7. **Read `protocol.md` before handing work to another pane.** Send plain text without a tag and the
-   receiver has nowhere to reply, and **that failure is silent** — they work, results appear, and
-   nothing connects request to reply. **What makes it a delegation is the text you send, not the
-   command you use** — if the receiver is an agent and the text contains work to do, it is a
-   delegation, whatever argument carried it.
-   **TUI**: that includes `agent start` arguments. Startup arguments look like "a note attached
-   while launching", but **one line of work in them makes it an untagged delegation.** So launching
-   a new peer splits into two steps — put **nothing** in the `agent start` arguments (they cannot
-   carry angle brackets or newlines, so a tag will not fit anyway), then send the tagged request with
-   `agent prompt` once it is up. The tag summons their skill, so nothing needs to precede it. After
-   sending, do not hold your turn waiting for a reply — neither `agent prompt --wait` nor
-   `agent wait`, since both block the person's instructions and other panes' requests.
-   **In hc mode the contract is the same but the carrier differs** (the tagged request goes in the
-   `hc run` argument, and `hc wait --children` is allowed) — read `hc.md`.
-   → `protocol.md` · `delegation.md`
-8. **Before removing or restoring anything, ask whether you created it.** Workspaces, tabs, and
-   panes you did not create are not closed unless the person asks — the context built up in that
-   pane goes with it and cannot be recovered. If what you meant to close is already gone, **a person
-   may have cleared it, so treat the goal as met and do nothing.** → `lifecycle.md`
+   looking for another path, find what you assumed wrongly.
+   → [common/diagnosing.md](references/common/diagnosing.md) (premises, cause, resends) ·
+   [tui/diagnosing.md](references/tui/diagnosing.md) (symptom table)
+7. **Read the delegation contract before handing work to another pane.** Send plain text without a
+   tag and the receiver has nowhere to reply, and **that failure is silent** — they work, results
+   appear, and nothing connects request to reply. **What makes it a delegation is the text you send,
+   not the command you use** — if the receiver is an agent and the text contains work to do, it is a
+   delegation, whatever argument carried it, **including the arguments of the command that launches
+   the agent.** Launch arguments look like "a note attached while launching", but one line of work
+   in them is an untagged delegation. In the TUI they cannot carry a tag at all, so launch with
+   nothing in them and send the tagged request once it is up; in hc mode the tagged request goes in
+   the `hc run` argument itself. The tag summons their skill, so nothing needs to precede it. After
+   sending, **do not hold your turn waiting for a reply** (in the TUI neither `agent prompt --wait`
+   nor `agent wait`; in hc mode `hc wait --children` is allowed because it does not shut anyone
+   out). → [common/delegation.md](references/common/delegation.md) (whether, whom, wording) ·
+   [common/protocol-tag.md](references/common/protocol-tag.md) (the tag, its attributes, addresses) ·
+   [tui/delegating.md](references/tui/delegating.md) (three-step start) ·
+   [app/delegating.md](references/app/delegating.md) (first request in `hc run`)
+8. **Before removing or restoring anything, ask whether you created it.** Workspaces, tabs, panes,
+   and terminals you did not create are not closed unless the person asks — the context built up in
+   that pane goes with it and cannot be recovered. If what you meant to close is already gone, **a
+   person may have cleared it, so treat the goal as met and do nothing.**
+   → [common/lifecycle.md](references/common/lifecycle.md) (close only yours, no resurrection) ·
+   [tui/lifecycle.md](references/tui/lifecycle.md) (ending only the agent) ·
+   [app/lifecycle.md](references/app/lifecycle.md) (cleaning up with `hc kill` and `hc rm`)
 
 ## What to read for what
 
-| What you are doing | What to read |
-|---|---|
-| **Anything, in hc mode** (`$HC_TERMINAL_ID` set). You received an `hc` tag | `references/hc.md` first, then the rows below for the judgment |
-| Naming, creating, or moving a pane. Telling a person which pane you mean | `references/targeting.md` |
-| Splitting left/right or top/bottom. Opening several. Tidying an arrangement | `references/layout.md` |
-| **In hc mode, on any machine**: splitting, opening a tab, bringing a background terminal into a tab, pane or group ratios, moving a tab to another space | `scripts/app/hc-layout` (usage in `references/hc.md`, "Arranging panes") |
-| A pane or agent is gone. Interpreting a status name | `references/lifecycle.md` |
-| Launching an agent (`agent start`), running a command in a pane (`pane run`) | **the official `herdr` skill** — syntax lives there and is not copied here. But **the moment you consider putting even one line of work into the startup arguments**, that is a delegation: read the two rows below first. "Just launching it" and "handing it work" use the same command, so you cannot tell them apart on your own |
-| Handing work to another pane and getting results back. You received a `herdr` tag or reply | `references/protocol.md` |
-| Deciding whether to delegate at all. Choosing who. Splitting across several | `references/delegation.md` |
-| Reading a screen and judging. A result looks wrong. A command behaved unexpectedly | `references/pitfalls.md` |
+Read the `common/` document for the judgment, then your mode's document for the commands. Every
+document, with what it covers, is listed in [references/INDEX.md](references/INDEX.md).
 
-If you received the tag, read `protocol.md` before processing its body (in hc mode, `hc.md` first).
-Working without knowing how to reply loses the result outright and leaves the requester waiting
-forever. **The sending side reads the same document** — that is rule seven.
+| What you are doing | Judgment (`common/`) | TUI (`tui/`) | hc mode (`app/`) |
+|---|---|---|---|
+| **Anything, in hc mode** (`$HC_TERMINAL_ID` set). You received an `hc` tag | — | — | [app/INDEX.md](references/app/INDEX.md) first: which hc document covers which situation |
+| Naming, creating, or moving a pane. Telling a person which pane you mean | [targeting.md](references/common/targeting.md): reference point, no fallback, names to people | [targeting.md](references/tui/targeting.md): `--current` and `$HERDR_PANE_ID` slots, membership | [addressing.md](references/app/addressing.md): `tN`, never names; [layout.md](references/app/layout.md): `where`, `tree` |
+| Splitting left/right or top/bottom | [layout-direction.md](references/common/layout-direction.md): translating words, verifying | [splitting.md](references/tui/splitting.md): `right\|down`, split-then-swap, coordinates | [layout.md](references/app/layout.md): `hc-layout open\|place`, four directions |
+| Opening several. Ratios. Tidying an arrangement. A tab moved to another space | [layout-arranging.md](references/common/layout-arranging.md): even shares, focus, candidates, what cannot be built | [sizing.md](references/tui/sizing.md): `--ratio`, `resize`, zoom; [rearranging.md](references/tui/rearranging.md): swap versus two-step move | [layout.md](references/app/layout.md): `resize`, `move-tab`, `adopt`; [layout-routes.md](references/app/layout-routes.md): app versus doc route |
+| A pane or agent is gone. Closing something. Interpreting a status name | [lifecycle.md](references/common/lifecycle.md): close only yours, no resurrection | [lifecycle.md](references/tui/lifecycle.md): `--cwd`, `/exit`, unscoped listings | [lifecycle.md](references/app/lifecycle.md): `--outlive-parent`, `hc kill`/`hc rm` |
+| Launching an agent or running a command in a pane | **Syntax is in the official `herdr` skill or `hc --skill`.** But **the moment you consider putting even one line of work into the launch arguments**, that is a delegation: read the two rows below first. "Just launching it" and "handing it work" use the same command, so you cannot tell them apart on your own | | |
+| Deciding whether to delegate at all. Choosing who. Splitting across several | [delegation.md](references/common/delegation.md): what counts, whom, wording, omissions | [delegating.md](references/tui/delegating.md): roster, three-step start, no `--wait` | [delegating.md](references/app/delegating.md): what hc does, carrier table |
+| Handing work to another pane and getting results back. You received a `herdr` tag or reply | [protocol-tag.md](references/common/protocol-tag.md): the tag; [protocol-replying.md](references/common/protocol-replying.md): replying; [protocol-waiting.md](references/common/protocol-waiting.md): waiting, `fanout`; [protocol-chains.md](references/common/protocol-chains.md): `hop`, handover | [replying.md](references/tui/replying.md): the reply block with `esc` | [replying.md](references/app/replying.md): `hc send`; [addressing.md](references/app/addressing.md): `to`, `<hc>` wrapping |
+| Reading a screen and judging. A result looks wrong. A command behaved unexpectedly | [reading-screens.md](references/common/reading-screens.md): suggestion text, questions on screen; [diagnosing.md](references/common/diagnosing.md): premises, cause | [diagnosing.md](references/tui/diagnosing.md): symptoms, commands that read backwards | [delegating.md](references/app/delegating.md): hc's notes and refusals |
+
+If you received the tag, read [protocol-tag.md](references/common/protocol-tag.md) and
+[protocol-replying.md](references/common/protocol-replying.md) before processing its body (in hc
+mode, [app/INDEX.md](references/app/INDEX.md) first). Working without knowing how to reply loses the
+result outright and leaves the requester waiting forever. **The sending side reads the same
+documents** — that is rule seven.
