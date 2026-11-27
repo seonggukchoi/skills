@@ -21,8 +21,7 @@ lifetimes work and how to clean up.
   `open` to the left or up, and `move-tab` split on the app route). When the command ends, whether it
   succeeded or failed, each one it made is closed, `hc kill`ed and `hc rm`ed by its own address; one
   already gone counts as removed. It never closes a pane it did not create. If one cannot be removed,
-  the error names its address: `hc kill` and `hc rm` that address only. Measured with herdr-app
-  0.1.18 and hc 0.1.22: `pane.close` ends the placeholder, `hc kill` also takes its pane away, and
-  `hc kill` on a finished terminal is a no-op.
+  the error names its address: `hc kill` and `hc rm` that address only. Measured: `pane.close` ends the placeholder, `hc kill` also takes its pane
+  away, and `hc kill` on a finished terminal is a no-op.
 - A terminal that is gone is gone: treat the goal as met, as
   [common/lifecycle.md](../common/lifecycle.md) says.

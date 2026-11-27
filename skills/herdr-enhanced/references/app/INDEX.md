@@ -8,8 +8,7 @@ The full map is [../INDEX.md](../INDEX.md).
 **The judgment and the delegation contract do not change in hc mode** (the
 [common/](../common/INDEX.md) documents); only the address values (`tN`) and the commands that carry
 the text differ. Each document here opens with the `common/` documents it carries out — read those
-for the reasons. Measured behavior was observed with hc 0.1.17 and Claude Code agents unless a
-document names another version; anything not measured is marked as such.
+for the reasons. Measured behavior was observed with Claude Code agents; anything not measured is marked as such.
 
 | When you are | Read |
 |---|---|
