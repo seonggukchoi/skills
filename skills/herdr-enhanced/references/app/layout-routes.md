@@ -11,7 +11,7 @@ and `edits.py` for reading and writing the layout document.
 
 | Route | When | How it changes the layout |
 |---|---|---|
-| `app` | `herdr-app status` works here (the computer with the Herdr window) | Public commands only. A placeholder pane is split where the terminal should go, the terminal joins the tab by labels and is swapped into the placeholder's slot, the placeholder closes. `layout.resize` sets sizes. Nothing takes focus |
+| `app` | `herdr-app status` works here (the computer with the Herdr window) | Public commands only. A placeholder pane is split where the terminal should go, the terminal joins the tab by labels and is swapped into the placeholder's slot, the placeholder closes. Every placeholder a command made is removed when it ends, even when it fails ([lifecycle.md](lifecycle.md)). `layout.resize` sets sizes. Nothing takes focus |
 | `doc` | No Herdr app here (a remote machine over ssh) | Writes that machine's layout document with `doc.set`: the shape is checked first (unknown shape: nothing is written), the write carries the version read (another client wrote first: read again and retry), and the edit follows what the app itself writes. Then `herdr.space`/`herdr.tab` labels are set, since the app does not relabel |
 
 Every client (desktop, mobile, another computer) draws from the machine's layout document, so both
