@@ -62,17 +62,22 @@ def split_placeholder(anchor_pane, direction):
     return r["terminal"], r["pane"]
 
 
-def drop_placeholder(ph_terminal, ph_pane):
-    app("pane.close", pane=ph_pane)
-    deadline = time.time() + WAIT_SECONDS
-    while time.time() < deadline:
-        p = sh(["hc", "get", ph_terminal, "--json"], check=False)
-        if p.returncode != 0:
-            return
-        if json.loads(p.stdout).get("state") == "finished":
-            sh(["hc", "rm", ph_terminal], check=False)
-            return
-        time.sleep(0.3)
+def drop_placeholder(ph_terminal):
+    """Close, end and remove one placeholder this run made. Gone already counts as done."""
+    hit = app_panes().get(ph_terminal)
+    if hit:
+        try:
+            app("pane.close", pane=hit["pane"])
+        except Fail:
+            pass  # `hc kill` below also takes the pane away (measured)
+    if sh(["hc", "get", ph_terminal, "--json"], check=False).returncode != 0:
+        return
+    # `pane.close` normally ends it (measured); `hc kill` makes sure, and is a no-op on a
+    # finished terminal (measured). Both name this terminal only.
+    sh(["hc", "kill", ph_terminal], check=False)
+    sh(["hc", "rm", ph_terminal], check=False)
+    if sh(["hc", "get", ph_terminal, "--json"], check=False).returncode == 0:
+        raise Fail(f"placeholder {ph_terminal} could not be removed; `hc kill` and `hc rm` it")
 
 
 def bring_into(terminal, machine, space_local, tab_local, ph_terminal, ph_pane):
@@ -83,7 +88,7 @@ def bring_into(terminal, machine, space_local, tab_local, ph_terminal, ph_pane):
     sh(["hc", "label", terminal, f"herdr.space={space_local}", f"herdr.tab={tab_local}"])
     landed = wait_for_pane(terminal, qualify(machine, tab_local))
     app("pane.swap", pane=landed["pane"], target=ph_pane)
-    drop_placeholder(ph_terminal, ph_pane)
+    drop_placeholder(ph_terminal)
     return landed["pane"]
 
 

@@ -75,7 +75,7 @@ def cmd_move_tab(a):
                 res = app("pane.split", direction="right", pane=ph_pane, mod=content.get("mod"),
                           props=content.get("props"))
                 app("pane.swap", pane=res["pane"], target=ph_pane)
-                drop_placeholder(ph_terminal, ph_pane)
+                drop_placeholder(ph_terminal)
             return
         direction = "right" if node["type"] == "row" else "down"
         slots = [(ph_terminal, ph_pane)]
