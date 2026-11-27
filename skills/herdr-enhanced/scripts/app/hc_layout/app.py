@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 import time
 
 from .base import PLACEHOLDER, WAIT_SECONDS, Fail, sh, sh_json
@@ -57,11 +58,6 @@ def wait_gone(terminal):
     raise Fail(f"{terminal} still has a pane after parking")
 
 
-def split_placeholder(anchor_pane, direction):
-    r = app("pane.split", direction=direction, pane=anchor_pane, argv=PLACEHOLDER)
-    return r["terminal"], r["pane"]
-
-
 def drop_placeholder(ph_terminal):
     """Close, end and remove one placeholder this run made. Gone already counts as done."""
     hit = app_panes().get(ph_terminal)
@@ -80,7 +76,45 @@ def drop_placeholder(ph_terminal):
         raise Fail(f"placeholder {ph_terminal} could not be removed; `hc kill` and `hc rm` it")
 
 
-def bring_into(terminal, machine, space_local, tab_local, ph_terminal, ph_pane):
+class Placeholders:
+    """The placeholders one command makes. Leaving the `with` block drops every one still
+    standing, whether the command succeeded or failed, so none outlives the command."""
+
+    def __init__(self):
+        self.made = []
+
+    def __enter__(self):
+        return self
+
+    def add(self, ph_terminal):
+        self.made.append(ph_terminal)
+
+    def split(self, anchor_pane, direction):
+        r = app("pane.split", direction=direction, pane=anchor_pane, argv=PLACEHOLDER)
+        self.add(r["terminal"])
+        return r["terminal"], r["pane"]
+
+    def drop(self, ph_terminal):
+        drop_placeholder(ph_terminal)
+        self.made.remove(ph_terminal)
+
+    def __exit__(self, exc_type, exc, tb):
+        left = []
+        for ph_terminal in self.made:
+            try:
+                drop_placeholder(ph_terminal)
+            except Fail:
+                left.append(ph_terminal)
+        self.made = []
+        if left:
+            msg = f"placeholders {', '.join(left)} could not be removed; `hc kill` and `hc rm` them"
+            if exc_type is None:
+                raise Fail(msg)
+            print(f"hc-layout: {msg}", file=sys.stderr)
+        return False
+
+
+def bring_into(terminal, machine, space_local, tab_local, placeholders, ph_terminal, ph_pane):
     """App route: put `terminal` where the placeholder is, then drop the placeholder."""
     if app_panes().get(terminal):
         app("terminal.park", terminal=terminal)
@@ -88,7 +122,7 @@ def bring_into(terminal, machine, space_local, tab_local, ph_terminal, ph_pane):
     sh(["hc", "label", terminal, f"herdr.space={space_local}", f"herdr.tab={tab_local}"])
     landed = wait_for_pane(terminal, qualify(machine, tab_local))
     app("pane.swap", pane=landed["pane"], target=ph_pane)
-    drop_placeholder(ph_terminal)
+    placeholders.drop(ph_terminal)
     return landed["pane"]
 
 
