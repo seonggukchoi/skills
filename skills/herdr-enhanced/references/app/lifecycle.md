@@ -17,7 +17,11 @@ lifetimes work and how to clean up.
 
 - On terminals you launched: `hc kill`, then `hc rm`. Name each address exactly; never clear by name
   pattern.
-- `hc-layout` removes its own placeholders (`sh -c 'while :; do sleep 3600; done'`); it never closes
-  a pane it did not create.
+- `hc-layout` removes its own placeholders (`sh -c 'while :; do sleep 3600; done'`, which `place`,
+  `open` to the left or up, and `move-tab` split on the app route). When the command ends, whether it
+  succeeded or failed, each one it made is closed, `hc kill`ed and `hc rm`ed by its own address; one
+  already gone counts as removed. It never closes a pane it did not create. If one cannot be removed,
+  the error names its address: `hc kill` and `hc rm` that address only. Measured: `pane.close` ends the placeholder, `hc kill` also takes its pane
+  away, and `hc kill` on a finished terminal is a no-op.
 - A terminal that is gone is gone: treat the goal as met, as
   [common/lifecycle.md](../common/lifecycle.md) says.

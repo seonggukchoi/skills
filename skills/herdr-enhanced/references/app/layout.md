@@ -35,6 +35,9 @@ L=<this skill's directory>/scripts/app/hc-layout
 - Every command prints JSON with the route it took (`via`); `place` and `open` also report
   `verified` from reading the tree back. **Read `verified`**: `false` means the tree does not show the
   pane where asked; check with `tree` and fix it before handing back to a person.
+- **A failed `place` or `move-tab` stops partway.** Its placeholders are removed, but a terminal it
+  had already labelled lands at the end of the tab's outermost split, and `move-tab` leaves the tab
+  split between the two spaces (measured). Read `tree`, then finish with `place` or `resize`.
 - Find your own place with `where "$HC_TERMINAL_ID"`, and check membership after opening several
   with `tree` ([common/targeting.md](../common/targeting.md)).
 

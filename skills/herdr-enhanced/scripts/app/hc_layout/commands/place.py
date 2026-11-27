@@ -2,7 +2,7 @@
 
 import json
 
-from ..app import app, bring_into, route, split_placeholder
+from ..app import Placeholders, app, bring_into, route
 from ..base import Fail
 from ..doc import doc_change, doc_get
 from ..edits import detach, insert_beside
@@ -29,10 +29,12 @@ def cmd_place(a):
         terminal = qualify(machine, term_local)
         anchor_pane = qualify(machine, anchor_id)
         base = "right" if a.direction in ("right", "left") else "down"
-        ph_terminal, ph_pane = split_placeholder(anchor_pane, base)
-        if a.direction in ("left", "up"):
-            app("pane.swap", pane=anchor_pane, target=ph_pane)
-        bring_into(terminal, machine, anchor["space"]["id"], anchor["tab"]["id"], ph_terminal, ph_pane)
+        with Placeholders() as ph:
+            ph_terminal, ph_pane = ph.split(anchor_pane, base)
+            if a.direction in ("left", "up"):
+                app("pane.swap", pane=anchor_pane, target=ph_pane)
+            bring_into(terminal, machine, anchor["space"]["id"], anchor["tab"]["id"], ph,
+                       ph_terminal, ph_pane)
     else:
         def mutate(doc):
             old = locate(doc, term_local)

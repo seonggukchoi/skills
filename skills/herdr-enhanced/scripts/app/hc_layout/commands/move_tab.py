@@ -2,8 +2,7 @@
 
 import json
 
-from ..app import (app, app_panes, bring_into, drop_placeholder, route, set_weights_app,
-                   split_placeholder, wait_for_pane)
+from ..app import Placeholders, app, app_panes, bring_into, route, set_weights_app, wait_for_pane
 from ..base import PLACEHOLDER, Fail
 from ..doc import doc_change, doc_get
 from ..ids import one_machine, qualify, split_id
@@ -59,32 +58,34 @@ def cmd_move_tab(a):
     for term in terminals_under(src_root):
         if qualify(machine, term) not in shown:
             raise Fail(f"{term} is in the tab but not shown by the app; nothing was moved")
-    made = app("tab.new", space=qualify(machine, dst_space["id"]), name=src_tab.get("name") or None,
-               argv=PLACEHOLDER, focus=False)
-    new_tab_app = made["tab"]
-    _, new_tab_local = split_id(new_tab_app)
-    root_ph_pane = wait_for_pane(made["terminal"], new_tab_app)["pane"]
+    with Placeholders() as ph:
+        made = app("tab.new", space=qualify(machine, dst_space["id"]),
+                   name=src_tab.get("name") or None, argv=PLACEHOLDER, focus=False)
+        ph.add(made["terminal"])
+        new_tab_app = made["tab"]
+        _, new_tab_local = split_id(new_tab_app)
+        root_ph_pane = wait_for_pane(made["terminal"], new_tab_app)["pane"]
 
-    def build(node, ph_terminal, ph_pane):
-        if node["type"] == "block":
-            content = node.get("content") or {}
-            if content.get("terminal"):
-                bring_into(qualify(machine, content["terminal"]), machine, dst_space["id"],
-                           new_tab_local, ph_terminal, ph_pane)
-            else:
-                res = app("pane.split", direction="right", pane=ph_pane, mod=content.get("mod"),
-                          props=content.get("props"))
-                app("pane.swap", pane=res["pane"], target=ph_pane)
-                drop_placeholder(ph_terminal, ph_pane)
-            return
-        direction = "right" if node["type"] == "row" else "down"
-        slots = [(ph_terminal, ph_pane)]
-        for _ in node["children"][1:]:
-            slots.append(split_placeholder(slots[-1][1], direction))
-        for child, (t, p) in zip(node["children"], slots):
-            build(child, t, p)
+        def build(node, ph_terminal, ph_pane):
+            if node["type"] == "block":
+                content = node.get("content") or {}
+                if content.get("terminal"):
+                    bring_into(qualify(machine, content["terminal"]), machine, dst_space["id"],
+                               new_tab_local, ph, ph_terminal, ph_pane)
+                else:
+                    res = app("pane.split", direction="right", pane=ph_pane,
+                              mod=content.get("mod"), props=content.get("props"))
+                    app("pane.swap", pane=res["pane"], target=ph_pane)
+                    ph.drop(ph_terminal)
+                return
+            direction = "right" if node["type"] == "row" else "down"
+            slots = [(ph_terminal, ph_pane)]
+            for _ in node["children"][1:]:
+                slots.append(ph.split(slots[-1][1], direction))
+            for child, (t, p) in zip(node["children"], slots):
+                build(child, t, p)
 
-    build(src_root, made["terminal"], root_ph_pane)
+        build(src_root, made["terminal"], root_ph_pane)
 
     _, new_tab = find_tab(doc_get(machine), new_tab_local)
     by_key = {(n["type"], tuple(terminals_under(n))): n for n, *_ in walk(new_tab["root"])
